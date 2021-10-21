@@ -1,0 +1,12 @@
+[package]
+name = "comtrade-rs"
+version = "0.1.0"
+authors = ["Drew Silcock <drew.silcock@stfc.ac.uk>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+derive_builder = "0.10.2"
+regex = "1.5.4"
+lazy_static = "1.4.0"
