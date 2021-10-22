@@ -2,7 +2,7 @@ pub mod parser;
 
 use derive_builder::Builder;
 
-pub use parser::{ComtradeParser, ComtradeParserBuilder, FormatRevision, ParseError};
+pub use parser::{ComtradeParser, ComtradeParserBuilder, ParseError, ParseResult};
 
 #[derive(Debug, Clone, PartialEq)]
 enum FileType {
@@ -20,11 +20,17 @@ pub enum FormatRevision {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-enum DataFormat {
+pub enum DataFormat {
     Ascii,
     Binary16,
     Binary32,
     Float32,
+}
+
+impl Default for DataFormat {
+    fn default() -> Self {
+        DataFormat::Ascii
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -33,7 +39,7 @@ enum AnalogScalingMode {
     Secondary,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct AnalogChannel {
     /// 1-indexed counter used to determine which channel this is in a COMTRADE record.
     pub index: u32,
@@ -60,7 +66,7 @@ pub struct AnalogChannel {
     scaling_mode: AnalogScalingMode,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct StatusChannel {
     pub index: u32,
     pub name: String,
@@ -69,7 +75,13 @@ pub struct StatusChannel {
     pub normal_status_value: u8,
 }
 
-#[derive(Default, Debug, Builder)]
+#[derive(Debug, Clone)]
+pub struct SamplingRate {
+    pub rate_hz: f64,
+    pub end_sample_number: u32,
+}
+
+#[derive(Default, Debug, Clone, Builder)]
 pub struct Comtrade {
     pub station_name: String,
     pub recording_device_id: String,

@@ -26,3 +26,9 @@ Todo: once ready, deploy to crates.io.
 ## Usage
 
 Todo: document usage.
+
+## Todo
+
+- Current test files all have only one sample rate - can I find a COMTRADE file with > 1 sample rate for purpose of testing comprehensiveness?
+- Clean up error messages - maybe have consistent format including filename and line number?
+- No test files with continuously variable sample rate.

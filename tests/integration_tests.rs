@@ -30,6 +30,8 @@ fn it_correctly_parses_sample_files_with_binary_data() {
     let cfg_path = dir.join("sample_2013_bin.cfg");
     let dat_path = dir.join("sample_2013_bin.dat");
 
+   println!("CFG path: {:?}, DAT path: {:?}", cfg_path, dat_path);
+
     let cfg_file = BufReader::new(File::open(cfg_path).expect("unable to find sample cfg file"));
     let dat_file = BufReader::new(File::open(dat_path).expect("unable to find sample dat file"));
 
