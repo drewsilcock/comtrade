@@ -3,7 +3,7 @@ name: Publish crate
 on:
   push:
     tags:
-      - "v*
+      - "v*"
 
 jobs:
   publish:
