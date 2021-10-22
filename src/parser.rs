@@ -12,11 +12,12 @@ use crate::{
     FileType,
     FormatRevision,
     StatusChannel,
+    SamplingRate,
 };
 
 const CFG_SEPARATOR: &'static str = ",";
 
-type ParseResult<T> = std::result::Result<T, ParseError>;
+pub type ParseResult<T> = std::result::Result<T, ParseError>;
 
 #[derive(Debug, Clone)]
 pub struct ParseError {
@@ -107,7 +108,7 @@ impl AnalogScalingMode {
 }
 
 lazy_static! {
-    static ref CFF_HEADER_REGEXP: Regex = Regex::new(r#"(?i)--- file type:\s*(?<file_type>[a-z]+)(?:\s*(?<data_format>[a-z]+)\s*:\s*(?<data_size>\d+)?)? ---$"#).unwrap();
+    static ref CFF_HEADER_REGEXP: Regex = Regex::new(r#"(?i)--- file type:\s*(?P<file_type>[a-z]+)(?:\s*(?P<data_format>[a-z]+)\s*:\s*(?P<data_size>\d+)?)? ---$"#).unwrap();
     static ref DATE_REGEXP: Regex = Regex::new("([0-9]{1,2})/([0-9]{1,2})/([0-9]{2,4})").unwrap();
     static ref TIME_REGEXP: Regex = Regex::new("([0-9]{2}):([0-9]{2}):([0-9]{2})(\\.([0-9]{1,12}))?").unwrap();
 }
@@ -159,7 +160,7 @@ impl<T: BufRead> ComtradeParserBuilder<T> {
         self
     }
 
-    pub fn build(mut self) -> ComtradeParser<T> {
+    pub fn build(self) -> ComtradeParser<T> {
         ComtradeParser::new(self.cff_file, self.cfg_file, self.dat_file, self.hdr_file, self.inf_file)
     }
 }
@@ -347,13 +348,13 @@ impl<T: BufRead> ComtradeParser<T> {
         //  `load_cff()` function.
         let mut lines = self.cfg_contents.split("\n");
 
-        let earlyEndErr = ParseError::new("unexpected end of .cfg file".to_string());
+        let early_end_err = ParseError::new("unexpected end of .cfg file".to_string());
 
         let mut line_number = 1;
         let mut line = "";
         let mut line_values: Vec<&str> = vec![];
 
-        line = lines.next().ok_or(earlyEndErr.clone())?;
+        line = lines.next().ok_or(early_end_err.clone())?;
         line_values = line.split(CFG_SEPARATOR).collect();
 
         // Station name, identification and optionally revision year:
@@ -375,7 +376,7 @@ impl<T: BufRead> ComtradeParser<T> {
 
         line_number += 1;
 
-        line = lines.next().ok_or(earlyEndErr.clone())?;
+        line = lines.next().ok_or(early_end_err.clone())?;
         line_values = line.split(CFG_SEPARATOR).collect();
 
         // Number and type of channels:
@@ -415,13 +416,13 @@ impl<T: BufRead> ComtradeParser<T> {
 
         line_number += 1;
 
-        let analog_channels: Vec<AnalogChannel> = Vec::with_capacity(self.num_analog_channels as usize);
-        let status_channels: Vec<StatusChannel> = Vec::with_capacity(self.num_status_channels as usize);
+        let mut analog_channels: Vec<AnalogChannel> = Vec::with_capacity(self.num_analog_channels as usize);
+        let mut status_channels: Vec<StatusChannel> = Vec::with_capacity(self.num_status_channels as usize);
 
         // Analog channel information:
         // An,ch_id,ph,ccbm,uu,a,b,skew,min,max,primary,secondary,PS
         for i in 0..self.num_analog_channels {
-            line = lines.next().ok_or(earlyEndErr.clone())?;
+            line = lines.next().ok_or(early_end_err.clone())?;
             line_values = line.split(CFG_SEPARATOR).collect();
 
             if line_values.len() != 13 {
@@ -531,7 +532,7 @@ impl<T: BufRead> ComtradeParser<T> {
 
             let scaling_mode = AnalogScalingMode::from_str(line_values[12].trim())?;
 
-            analog_channels[i as usize] = AnalogChannel {
+            analog_channels.push(AnalogChannel {
                 index: analog_index,
                 name,
                 phase,
@@ -545,7 +546,7 @@ impl<T: BufRead> ComtradeParser<T> {
                 primary_factor,
                 secondary_factor,
                 scaling_mode,
-            };
+            });
 
             line_number += 1;
         }
@@ -554,10 +555,10 @@ impl<T: BufRead> ComtradeParser<T> {
         // Status (digital) channel information:
         // Dn,ch_id,ph,ccbm,y
         for i in 0..self.num_analog_channels {
-            line = lines.next().ok_or(earlyEndErr.clone())?;
+            line = lines.next().ok_or(early_end_err.clone())?;
             line_values = line.split(CFG_SEPARATOR).collect();
 
-            if line_values.len() != 13 {
+            if line_values.len() != 5 {
                 return Err(ParseError::new(format!("unexpected number of values on line {}", line_number)));
             }
 
@@ -592,19 +593,19 @@ impl<T: BufRead> ComtradeParser<T> {
                 return Err(ParseError::new(format!("invalid normal status value for status channel {}: {}; expected one of : '0', '1'", i, line_values[4])));
             }
 
-            status_channels[i] = StatusChannel {
+            status_channels.push(StatusChannel {
                 index: status_index,
                 name,
                 phase,
                 circuit_component_being_monitored,
                 normal_status_value,
-            };
+            });
 
             line_number += 1;
         }
         self.builder.status_channels(status_channels);
 
-        line = lines.next().ok_or(earlyEndErr.clone())?;
+        line = lines.next().ok_or(early_end_err.clone())?;
 
         // Line frequency
         // lf
@@ -622,16 +623,82 @@ impl<T: BufRead> ComtradeParser<T> {
 
         line_number += 1;
 
-        line = lines.next().ok_or(earlyEndErr.clone())?;
+        line = lines.next().ok_or(early_end_err.clone())?;
         line_values = line.split(CFG_SEPARATOR).collect();
 
         // Sampling rate information
         // nrates (x 1)
         // samp,endsamp (x nrates)
-        // TODO
+        if line_values.len() != 1 {
+            return Err(ParseError::new(format!("unexpected number of values on line {}", line_number)));
+        }
+
+        let num_sampling_rates = line_values[0]
+            .trim()
+            .to_string()
+            .parse::<u32>()
+            .or(Err(ParseError::new(
+                format!(
+                    "invalid integer value for number of sample rates: {}",
+                    line_values[0]
+                ))
+            ))?;
+
+        let mut sampling_rates: Vec<SamplingRate> = Vec::with_capacity(num_sampling_rates as usize);
+
+        for i in 0..num_sampling_rates {
+            line = lines.next().ok_or(early_end_err.clone())?;
+            line_values = line.split(CFG_SEPARATOR).collect();
+
+            if line_values.len() != 2 {
+                return Err(ParseError::new(format!("unexpected number of values on line {}", line_number)));
+            }
+
+            // The sample rate in Hertz of this sample.
+            let rate_hz = line_values[0]
+                .trim()
+                .to_string()
+                .parse::<f64>()
+                .or(Err(ParseError::new(
+                    format!(
+                        "invalid float value for sample rate frequency for rate n# {} on line {}: {}",
+                        i,
+                        line_number,
+                        line_values[0]
+                    ))
+                ))?;
+
+            // The sample number of the final sample that uses this sample rate. Note this corresponds
+            // to the sample number value in the data itself, not an index.
+            let end_sample_number = line_values[1]
+                .trim()
+                .to_string()
+                .parse::<u32>()
+                .or(Err(ParseError::new(
+                    format!(
+                        "invalid integer value for end sample number for rate n# {} on line {}: {}",
+                        i,
+                        line_number,
+                        line_values[1]
+                    ))
+                ))?;
+
+            sampling_rates.push(SamplingRate {
+                rate_hz,
+                end_sample_number,
+            });
+        }
+
+        // If file has 0 for number of sample rates, there's an extra line which just contains 0
+        // indicating no fixed sample rate and the total number of samples. We don't need this data
+        // so we just ignore it.
+        if num_sampling_rates == 0 {
+            line_number += 1;
+            line = lines.next().ok_or(early_end_err.clone())?;
+        }
 
         line_number += 1;
-        line = lines.next().ok_or(earlyEndErr.clone())?;
+        line = lines.next().ok_or(early_end_err.clone())?;
         line_values = line.split(CFG_SEPARATOR).collect();
 
         // Date/time stamps
@@ -640,21 +707,21 @@ impl<T: BufRead> ComtradeParser<T> {
         // TODO
 
         line_number += 1;
-        line = lines.next().ok_or(earlyEndErr.clone())?;
+        line = lines.next().ok_or(early_end_err.clone())?;
 
         // Data file type
         // ft
         self.builder.data_format(DataFormat::from_str(line.to_lowercase())?);
 
         line_number += 1;
-        line = lines.next().ok_or(earlyEndErr.clone())?;
+        line = lines.next().ok_or(early_end_err.clone())?;
 
         // Time stamp multiplication factor
         // timemult
         // TODO
 
         line_number += 1;
-        line = lines.next().ok_or(earlyEndErr.clone())?;
+        line = lines.next().ok_or(early_end_err.clone())?;
         line_values = line.split(CFG_SEPARATOR).collect();
 
         // Time information and relationship between local time and UTC
@@ -662,7 +729,7 @@ impl<T: BufRead> ComtradeParser<T> {
         // TODO
 
         line_number += 1;
-        line = lines.next().ok_or(earlyEndErr.clone())?;
+        line = lines.next().ok_or(early_end_err.clone())?;
         line_values = line.split(CFG_SEPARATOR).collect();
 
         // Time quality of samples
