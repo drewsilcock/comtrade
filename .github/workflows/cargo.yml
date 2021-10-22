@@ -78,7 +78,3 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: doc
-      - uses: actions/upload-artifact@v1
-        with:
-          name: comtrade-rs-docs
-          path: target/doc
