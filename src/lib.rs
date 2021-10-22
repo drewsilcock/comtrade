@@ -91,6 +91,8 @@ pub enum TimeQuality {
     /// reliability of time as power of 10. For instances:
     ///
     /// ```rust
+    /// use comtrade_rs::TimeQuality;
+    ///
     /// // Device clock time is reliable to 1 nanosecond (10^-9).
     /// let q1 = TimeQuality::ClockUnlocked(-9);
     ///

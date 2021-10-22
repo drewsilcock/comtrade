@@ -844,22 +844,6 @@ impl<T: BufRead> ComtradeParser<T> {
 ///
 /// "Not applicable" is a valid value for this, represents in the COMTRADE file
 /// as `x` - this is given the value of `None` here.
-///
-/// ## Examples
-///
-/// ```rust
-/// let offset1 = parse_time_offset("-4").unwrap().unwrap();
-/// assert_eq!(&offset1.ymd(2016, 11, 08).and_hms(0, 0, 0).to_rfc3339(), "2016-11-08T00:00:00-04:00");
-///
-/// let offset2 = parse_time_offset("+10h30").unwrap().unwrap();
-/// assert_eq!(&offset2.ymd(2016, 11, 08).and_hms(0, 0, 0).to_rfc3339(), "2016-11-08T00:00:00+10:30");
-///
-/// let offset3 = parse_time_offset("-7h15").unwrap().unwrap();
-/// assert_eq!(&offset3.ymd(2016, 11, 08).and_hms(0, 0, 0).to_rfc3339(), "2016-11-08T00:00:00-07:15");
-///
-/// let offset4 = parse_time_offset("-0").unwrap().unwrap();
-/// assert_eq!(&offset4.ymd(2016, 11, 08).and_hms(0, 0, 0).to_rfc3339(), "2016-11-08T00:00:00+00:00");
-/// ```
 fn parse_time_offset(offset_str: &str) -> ParseResult<Option<FixedOffset>> {
     let time_value = offset_str.trim();
 
