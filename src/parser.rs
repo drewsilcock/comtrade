@@ -2,20 +2,12 @@ use std::io::BufRead;
 
 use lazy_static::lazy_static;
 use regex::Regex;
+use chrono::{FixedOffset, NaiveDateTime};
 
-use crate::{
-    AnalogChannel,
-    AnalogScalingMode,
-    Comtrade,
-    ComtradeBuilder,
-    DataFormat,
-    FileType,
-    FormatRevision,
-    StatusChannel,
-    SamplingRate,
-};
+use crate::{AnalogChannel, AnalogScalingMode, Comtrade, ComtradeBuilder, DataFormat, FileType, FormatRevision, StatusChannel, SamplingRate, TimeQuality, LeapSecondStatus};
 
 const CFG_SEPARATOR: &'static str = ",";
+const CFG_DATETIME_FORMAT: &'static str  = "%d/%m/%Y,%H:%M:%S%.f";
 
 pub type ParseResult<T> = std::result::Result<T, ParseError>;
 
@@ -30,37 +22,28 @@ impl ParseError {
     }
 }
 
-const FILE_TYPE_CFG_TOKEN: &'static str = "CFG";
-const FILE_TYPE_DAT_TOKEN: &'static str = "DAT";
-const FILE_TYPE_HDR_TOKEN: &'static str = "HDR";
-const FILE_TYPE_INF_TOKEN: &'static str = "INF";
-
 impl FileType {
     fn from_str(value: String) -> ParseResult<Self> {
-        match value.as_str() {
-            FILE_TYPE_CFG_TOKEN => Ok(FileType::Cfg),
-            FILE_TYPE_DAT_TOKEN => Ok(FileType::Dat),
-            FILE_TYPE_HDR_TOKEN => Ok(FileType::Hdr),
-            FILE_TYPE_INF_TOKEN => Ok(FileType::Inf),
+        match value.trim().to_lowercase().as_str() {
+            "cfg" => Ok(FileType::Cfg),
+            "dat" => Ok(FileType::Dat),
+            "hdr" => Ok(FileType::Hdr),
+            "inf" => Ok(FileType::Inf),
             _ => Err(ParseError::new(format!("invalid file type: '{}'", value)))
         }
     }
 }
 
 impl Default for FormatRevision {
-    fn default() -> Self { FormatRevision::Revision1999 }
+    fn default() -> Self { FormatRevision::Revision1991 }
 }
-
-const REVISION_1991_TOKEN: &'static str = "1991";
-const REVISION_1999_TOKEN: &'static str = "1999";
-const REVISION_2013_TOKEN: &'static str = "2013";
 
 impl FormatRevision {
     fn from_str(value: &str) -> ParseResult<Self> {
         match value {
-            REVISION_1991_TOKEN => Ok(FormatRevision::Revision1991),
-            REVISION_1999_TOKEN => Ok(FormatRevision::Revision1999),
-            REVISION_2013_TOKEN => Ok(FormatRevision::Revision2013),
+            "1991" => Ok(FormatRevision::Revision1991),
+            "1999" => Ok(FormatRevision::Revision1999),
+            "2013" => Ok(FormatRevision::Revision2013),
             _ => Err(ParseError::new(format!(
                 "unrecognised or invalid COMTRADE format revision: '{}'",
                 value.to_owned(),
@@ -69,18 +52,13 @@ impl FormatRevision {
     }
 }
 
-const DATA_FORMAT_ASCII_TOKEN: &'static str = "ASCII";
-const DATA_FORMAT_BINARY16_TOKEN: &'static str = "BINARY";
-const DATA_FORMAT_BINARY32_TOKEN: &'static str = "BINARY32";
-const DATA_FORMAT_FLOAT32_TOKEN: &'static str = "FLOAT32";
-
 impl DataFormat {
     fn from_str(value: String) -> ParseResult<Self> {
-        match value.as_str() {
-            DATA_FORMAT_ASCII_TOKEN => Ok(DataFormat::Ascii),
-            DATA_FORMAT_BINARY16_TOKEN => Ok(DataFormat::Binary16),
-            DATA_FORMAT_BINARY32_TOKEN => Ok(DataFormat::Binary32),
-            DATA_FORMAT_FLOAT32_TOKEN => Ok(DataFormat::Float32),
+        match value.to_lowercase().as_str() {
+            "ascii" => Ok(DataFormat::Ascii),
+            "binary" => Ok(DataFormat::Binary16),
+            "binary32" => Ok(DataFormat::Binary32),
+            "float32" => Ok(DataFormat::Float32),
             _ => Err(ParseError::new(format!(
                 "unrecognised or invalid COMTRADE data format: '{}'",
                 value.to_owned(),
@@ -89,14 +67,11 @@ impl DataFormat {
     }
 }
 
-const ANALOG_SCALING_MODE_PRIMARY_TOKEN: &'static str = "p";
-const ANALOG_SCALING_MODE_SECONDARY_TOKEN: &'static str = "s";
-
 impl AnalogScalingMode {
     fn from_str(value: &str) -> ParseResult<Self> {
         match value.to_lowercase().as_str() {
-            ANALOG_SCALING_MODE_PRIMARY_TOKEN => Ok(AnalogScalingMode::Primary),
-            ANALOG_SCALING_MODE_SECONDARY_TOKEN => Ok(AnalogScalingMode::Secondary),
+            "p" => Ok(AnalogScalingMode::Primary),
+            "s" => Ok(AnalogScalingMode::Secondary),
             _ => Err(ParseError::new(
                 format!(
                     "invalid analog scaling mode: '{}'; must be one of: 's', 'S', 'p', 'P'",
@@ -107,8 +82,51 @@ impl AnalogScalingMode {
     }
 }
 
+impl TimeQuality {
+    fn parse(value: &str) -> ParseResult<Self> {
+        match value.to_lowercase().trim() {
+            "f" => Ok(TimeQuality::ClockFailure),
+            "b" => Ok(TimeQuality::ClockUnlocked(1)),
+            "a" => Ok(TimeQuality::ClockUnlocked(0)),
+            "9" => Ok(TimeQuality::ClockUnlocked(-1)),
+            "8" => Ok(TimeQuality::ClockUnlocked(-2)),
+            "7" => Ok(TimeQuality::ClockUnlocked(-3)),
+            "6" => Ok(TimeQuality::ClockUnlocked(-4)),
+            "5" => Ok(TimeQuality::ClockUnlocked(-5)),
+            "4" => Ok(TimeQuality::ClockUnlocked(-6)),
+            "3" => Ok(TimeQuality::ClockUnlocked(-7)),
+            "2" => Ok(TimeQuality::ClockUnlocked(-8)),
+            "1" => Ok(TimeQuality::ClockUnlocked(-9)),
+            "0" => Ok(TimeQuality::ClockLocked),
+            _ => Err(ParseError::new(
+                format!(
+                    "invalid time quality code '{}'",
+                    value,
+                )
+            )),
+        }
+    }
+}
+
+impl LeapSecondStatus {
+    fn parse(value: &str) -> ParseResult<Self> {
+        match value.trim() {
+            "3" => Ok(LeapSecondStatus::NoCapability),
+            "2" => Ok(LeapSecondStatus::Subtracted),
+            "1" => Ok(LeapSecondStatus::Added),
+            "0" => Ok(LeapSecondStatus::NotPresent),
+            _ => Err(ParseError::new(
+                format!(
+                    "invalid leap second indicator '{}'",
+                    value,
+                )
+            )),
+        }
+    }
+}
+
 lazy_static! {
-    static ref CFF_HEADER_REGEXP: Regex = Regex::new(r#"(?i)--- file type:\s*(?P<file_type>[a-z]+)(?:\s*(?P<data_format>[a-z]+)\s*:\s*(?P<data_size>\d+)?)? ---$"#).unwrap();
+    static ref CFF_HEADER_REGEXP: Regex = Regex::new(r#"(?i)---\s*file type:\s*(?P<file_type>[a-z]+)(\s+(?P<data_format>[a-z]+))?\s*(:\s*(?P<data_size>\d+))?\s*---$"#).unwrap();
     static ref DATE_REGEXP: Regex = Regex::new("([0-9]{1,2})/([0-9]{1,2})/([0-9]{2,4})").unwrap();
     static ref TIME_REGEXP: Regex = Regex::new("([0-9]{2}):([0-9]{2}):([0-9]{2})(\\.([0-9]{1,12}))?").unwrap();
 }
@@ -284,6 +302,7 @@ impl<T: BufRead> ComtradeParser<T> {
             if bytes_read == 0 {
                 break;
             }
+            line = line.trim().to_string();
 
             let maybe_file_header_match = CFF_HEADER_REGEXP.captures(line.as_str());
             if let Some(header_match) = maybe_file_header_match {
@@ -360,19 +379,21 @@ impl<T: BufRead> ComtradeParser<T> {
         // Station name, identification and optionally revision year:
         // 1991:       station_name,rec_dev_id
         // 1999, 2013: station_name,rec_dev_id,rev_year
-        match line_values.len() {
+
+        // We need this value later to know when to quit.
+        self.builder.station_name(line_values[0].trim().to_string());
+        self.builder.recording_device_id(line_values[1].trim().to_string());
+
+        let format_revision = match line_values.len() {
             3 => {
-                self.builder.station_name(line_values[0].trim().to_string());
-                self.builder.recording_device_id(line_values[1].trim().to_string());
-                self.builder.revision(FormatRevision::from_str(line_values[2].trim())?);
+                FormatRevision::from_str(line_values[2].trim())?
             }
             2 => {
-                self.builder.station_name(line_values[0].trim().to_string());
-                self.builder.recording_device_id(line_values[1].trim().to_string());
-                self.builder.revision(FormatRevision::Revision1991);
+                FormatRevision::Revision1991
             }
             _ => return Err(ParseError::new(format!("unexpected number of values on line {}", line_number))),
-        }
+        };
+        self.builder.revision(format_revision);
 
         line_number += 1;
 
@@ -554,7 +575,7 @@ impl<T: BufRead> ComtradeParser<T> {
 
         // Status (digital) channel information:
         // Dn,ch_id,ph,ccbm,y
-        for i in 0..self.num_analog_channels {
+        for i in 0..self.num_status_channels {
             line = lines.next().ok_or(early_end_err.clone())?;
             line_values = line.split(CFG_SEPARATOR).collect();
 
@@ -615,7 +636,7 @@ impl<T: BufRead> ComtradeParser<T> {
             .parse::<f64>()
             .or(Err(ParseError::new(
                 format!(
-                    "invalid real numeric value for line frequency: {}",
+                    "invalid real numeric value for line frequency: '{}'",
                     line,
                 ))
             ))?;
@@ -697,6 +718,8 @@ impl<T: BufRead> ComtradeParser<T> {
             line = lines.next().ok_or(early_end_err.clone())?;
         }
 
+        self.builder.sampling_rates(sampling_rates);
+
         line_number += 1;
         line = lines.next().ok_or(early_end_err.clone())?;
         line_values = line.split(CFG_SEPARATOR).collect();
@@ -704,7 +727,31 @@ impl<T: BufRead> ComtradeParser<T> {
         // Date/time stamps
         // dd/mm/yyyy,hh:mm:ss.ssssss
         // dd/mm/yyyy,hh:mm:ss.ssssss
-        // TODO
+
+        // Time of the first data sample in data file.
+        let start_time = NaiveDateTime::parse_from_str(line.trim(), CFG_DATETIME_FORMAT)
+            .or(Err(ParseError::new(
+                format!(
+                    "invalid datetime value for start time on line {}: {}",
+                    line_number,
+                    line,
+                ))
+            ))?;
+        self.builder.start_time(start_time);
+
+        line_number += 1;
+        line = lines.next().ok_or(early_end_err.clone())?;
+
+        // Time that the COMTRADE record recording was triggered.
+        let trigger_time = NaiveDateTime::parse_from_str(line.trim(), CFG_DATETIME_FORMAT)
+            .or(Err(ParseError::new(
+                format!(
+                    "invalid datetime value for trigger time on line {}: {}",
+                    line_number,
+                    line,
+                ))
+            ))?;
+        self.builder.trigger_time(trigger_time);
 
         line_number += 1;
         line = lines.next().ok_or(early_end_err.clone())?;
@@ -713,12 +760,37 @@ impl<T: BufRead> ComtradeParser<T> {
         // ft
         self.builder.data_format(DataFormat::from_str(line.to_lowercase())?);
 
+        // 1991 format ends here - rest of values are 1999 and 2013 only.
+        if format_revision == FormatRevision::Revision1991 {
+            return Ok(())
+        }
+
         line_number += 1;
         line = lines.next().ok_or(early_end_err.clone())?;
 
         // Time stamp multiplication factor
         // timemult
-        // TODO
+        // The base unit for the timestamps in the data file is determined from the CFG,
+        // apparently from the time/stamp. It's not clear to me how this is determined.
+        // Regardless, this multiplicative factor allows you to store longer time ranges
+        // within a single COMTRADE record.
+
+        let time_mult = line
+            .trim()
+            .parse::<f64>()
+            .or(Err(ParseError::new(
+                format!(
+                    "invalid float value for time multiplication factor on line {}: {}",
+                    line_number,
+                    line,
+                ))
+            ))?;
+        self.builder.timestamp_multiplication_factor(time_mult);
+
+        // 1999 format ends here - rest of values are 2013 only.
+        if format_revision == FormatRevision::Revision1999 {
+            return Ok(())
+        }
 
         line_number += 1;
         line = lines.next().ok_or(early_end_err.clone())?;
@@ -726,7 +798,8 @@ impl<T: BufRead> ComtradeParser<T> {
 
         // Time information and relationship between local time and UTC
         // time_code, local_code
-        // TODO
+        self.builder.time_offset(parse_time_offset(line_values[0])?);
+        self.builder.local_offset(parse_time_offset(line_values[1])?);
 
         line_number += 1;
         line = lines.next().ok_or(early_end_err.clone())?;
@@ -734,7 +807,11 @@ impl<T: BufRead> ComtradeParser<T> {
 
         // Time quality of samples
         // tmq_code,leapsec
-        // TODO
+        let tmq_code = TimeQuality::parse(line_values[0])?;
+        self.builder.time_quality(Some(tmq_code));
+
+        let leap_second_status = LeapSecondStatus::parse(line_values[1])?;
+        self.builder.leap_second_status(Some(leap_second_status));
 
         Ok(())
     }
@@ -742,4 +819,85 @@ impl<T: BufRead> ComtradeParser<T> {
     fn parse_dat(&mut self) -> ParseResult<()> {
         Ok(())
     }
+}
+
+/// Parse COMTRADE time offset format into chrono struct.
+///
+/// COMTRADE format looks like:
+///   - "-4" meaning 4 hours west of UTC
+///   - "+10h30" meaning 10 hours and 30 minutes east of UTC.
+///   - "-7h15" meaning 7 hours and 15 minutes west of UTC.
+///   - "0" meaning same as UTC.
+///
+/// "Not applicable" is a valid value for this, represents in the COMTRADE file
+/// as `x` - this is given the value of `None` here.
+///
+/// ## Examples
+///
+/// ```rust
+/// let offset1 = parse_time_offset("-4").unwrap().unwrap();
+/// assert_eq!(&offset1.ymd(2016, 11, 08).and_hms(0, 0, 0).to_rfc3339(), "2016-11-08T00:00:00-04:00");
+///
+/// let offset2 = parse_time_offset("+10h30").unwrap().unwrap();
+/// assert_eq!(&offset2.ymd(2016, 11, 08).and_hms(0, 0, 0).to_rfc3339(), "2016-11-08T00:00:00+10:30");
+///
+/// let offset3 = parse_time_offset("-7h15").unwrap().unwrap();
+/// assert_eq!(&offset3.ymd(2016, 11, 08).and_hms(0, 0, 0).to_rfc3339(), "2016-11-08T00:00:00-07:15");
+///
+/// let offset4 = parse_time_offset("-0").unwrap().unwrap();
+/// assert_eq!(&offset4.ymd(2016, 11, 08).and_hms(0, 0, 0).to_rfc3339(), "2016-11-08T00:00:00+00:00");
+/// ```
+fn parse_time_offset(offset_str: &str) -> ParseResult<Option<FixedOffset>> {
+    let time_value = offset_str.trim();
+
+    // Special value indicating offset field does not apply.
+    if time_value.to_lowercase() == "x" {
+        return Ok(None);
+    }
+
+    let maybe_hours = time_value.parse::<i32>();
+
+    if let Ok(hours) = maybe_hours {
+        // Offset specified just as number of hours, e.g. "-4", "+10", "0".
+        return Ok(Some(FixedOffset::east(hours * 3600)));
+    }
+
+    // Offset specified as number + minutes, e.g. "-7h15", "+9h45".
+    let time_split: Vec<&str> = time_value.split("h").collect();
+    if time_split.len() != 2 {
+        return Err(ParseError::new(
+            format!(
+                "invalid time offset on line: {}",
+                time_value,
+            )));
+    }
+
+    let hours = time_split[0]
+        .trim()
+        .parse::<i32>()
+        .or(
+            Err(ParseError::new(
+                format!(
+                    "invalid hour offset in time offset: {} in {}",
+                    time_split[0],
+                    time_value,
+                )
+            ))
+        )?;
+    let minutes = time_split[1]
+        .trim()
+        .parse::<i32>()
+        .or(
+            Err(ParseError::new(
+                format!(
+                    "invalid minute offset in time offset: {} in {}",
+                    time_split[1],
+                    time_value,
+                )
+            ))
+        )?;
+
+    let total_offset = if hours > 0 { hours * 3600 + minutes * 60 } else { hours * 3600 - minutes * 60 };
+
+    return Ok(Some(FixedOffset::east(total_offset)));
 }
