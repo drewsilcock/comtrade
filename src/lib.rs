@@ -152,7 +152,6 @@ pub struct Comtrade {
     pub timestamp_multiplication_factor: f64,
 
     // Below data are 2013 format onwards only.
-
     pub time_offset: Option<FixedOffset>,
     pub local_offset: Option<FixedOffset>,
 

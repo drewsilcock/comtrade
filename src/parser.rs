@@ -1,13 +1,16 @@
 use std::io::BufRead;
 
+use chrono::{FixedOffset, NaiveDateTime};
 use lazy_static::lazy_static;
 use regex::Regex;
-use chrono::{FixedOffset, NaiveDateTime};
 
-use crate::{AnalogChannel, AnalogScalingMode, Comtrade, ComtradeBuilder, DataFormat, FileType, FormatRevision, StatusChannel, SamplingRate, TimeQuality, LeapSecondStatus};
+use crate::{
+    AnalogChannel, AnalogScalingMode, Comtrade, ComtradeBuilder, DataFormat, FileType,
+    FormatRevision, LeapSecondStatus, SamplingRate, StatusChannel, TimeQuality,
+};
 
 const CFG_SEPARATOR: &'static str = ",";
-const CFG_DATETIME_FORMAT: &'static str  = "%d/%m/%Y,%H:%M:%S%.f";
+const CFG_DATETIME_FORMAT: &'static str = "%d/%m/%Y,%H:%M:%S%.f";
 
 pub type ParseResult<T> = std::result::Result<T, ParseError>;
 
@@ -29,13 +32,15 @@ impl FileType {
             "dat" => Ok(FileType::Dat),
             "hdr" => Ok(FileType::Hdr),
             "inf" => Ok(FileType::Inf),
-            _ => Err(ParseError::new(format!("invalid file type: '{}'", value)))
+            _ => Err(ParseError::new(format!("invalid file type: '{}'", value))),
         }
     }
 }
 
 impl Default for FormatRevision {
-    fn default() -> Self { FormatRevision::Revision1991 }
+    fn default() -> Self {
+        FormatRevision::Revision1991
+    }
 }
 
 impl FormatRevision {
@@ -72,12 +77,10 @@ impl AnalogScalingMode {
         match value.to_lowercase().as_str() {
             "p" => Ok(AnalogScalingMode::Primary),
             "s" => Ok(AnalogScalingMode::Secondary),
-            _ => Err(ParseError::new(
-                format!(
-                    "invalid analog scaling mode: '{}'; must be one of: 's', 'S', 'p', 'P'",
-                    value,
-                ))
-            )
+            _ => Err(ParseError::new(format!(
+                "invalid analog scaling mode: '{}'; must be one of: 's', 'S', 'p', 'P'",
+                value,
+            ))),
         }
     }
 }
@@ -98,12 +101,10 @@ impl TimeQuality {
             "2" => Ok(TimeQuality::ClockUnlocked(-8)),
             "1" => Ok(TimeQuality::ClockUnlocked(-9)),
             "0" => Ok(TimeQuality::ClockLocked),
-            _ => Err(ParseError::new(
-                format!(
-                    "invalid time quality code '{}'",
-                    value,
-                )
-            )),
+            _ => Err(ParseError::new(format!(
+                "invalid time quality code '{}'",
+                value,
+            ))),
         }
     }
 }
@@ -115,12 +116,10 @@ impl LeapSecondStatus {
             "2" => Ok(LeapSecondStatus::Subtracted),
             "1" => Ok(LeapSecondStatus::Added),
             "0" => Ok(LeapSecondStatus::NotPresent),
-            _ => Err(ParseError::new(
-                format!(
-                    "invalid leap second indicator '{}'",
-                    value,
-                )
-            )),
+            _ => Err(ParseError::new(format!(
+                "invalid leap second indicator '{}'",
+                value,
+            ))),
         }
     }
 }
@@ -179,7 +178,13 @@ impl<T: BufRead> ComtradeParserBuilder<T> {
     }
 
     pub fn build(self) -> ComtradeParser<T> {
-        ComtradeParser::new(self.cff_file, self.cfg_file, self.dat_file, self.hdr_file, self.inf_file)
+        ComtradeParser::new(
+            self.cff_file,
+            self.cfg_file,
+            self.dat_file,
+            self.hdr_file,
+            self.inf_file,
+        )
     }
 }
 
@@ -201,7 +206,13 @@ pub struct ComtradeParser<T: BufRead> {
 }
 
 impl<T: BufRead> ComtradeParser<T> {
-    pub fn new(cff_file: Option<T>, cfg_file: Option<T>, dat_file: Option<T>, hdr_file: Option<T>, inf_file: Option<T>) -> Self {
+    pub fn new(
+        cff_file: Option<T>,
+        cfg_file: Option<T>,
+        dat_file: Option<T>,
+        hdr_file: Option<T>,
+        inf_file: Option<T>,
+    ) -> Self {
         Self {
             cff_file,
             cfg_file,
@@ -242,9 +253,13 @@ impl<T: BufRead> ComtradeParser<T> {
             if let Some(ref mut cfg_file) = self.cfg_file {
                 cfg_file
                     .read_to_string(&mut self.cfg_contents)
-                    .or(Err(ParseError::new("unable to read specified .cfg file".to_string())))?;
+                    .or(Err(ParseError::new(
+                        "unable to read specified .cfg file".to_string(),
+                    )))?;
             } else {
-                return Err(ParseError::new("you must specify either .cff or .cfg file".to_string()));
+                return Err(ParseError::new(
+                    "you must specify either .cff or .cfg file".to_string(),
+                ));
             }
 
             if let Some(ref mut dat_file) = self.dat_file {
@@ -253,19 +268,25 @@ impl<T: BufRead> ComtradeParser<T> {
                 //    .read_to_string(&mut self.dat_contents)
                 //    .or(Err(ParseError::new("unable to read specified .dat file".to_string())))?;
             } else {
-                return Err(ParseError::new("you must specify either .cff or .dat file".to_string()));
+                return Err(ParseError::new(
+                    "you must specify either .cff or .dat file".to_string(),
+                ));
             }
 
             if let Some(ref mut hdr_file) = self.hdr_file {
                 hdr_file
                     .read_to_string(&mut self.hdr_contents)
-                    .or(Err(ParseError::new("unable to read specified .hdr file".to_string())))?;
+                    .or(Err(ParseError::new(
+                        "unable to read specified .hdr file".to_string(),
+                    )))?;
             }
 
             if let Some(ref mut inf_file) = self.inf_file {
                 inf_file
                     .read_to_string(&mut self.inf_contents)
-                    .or(Err(ParseError::new("unable to read specified .inf file".to_string())))?;
+                    .or(Err(ParseError::new(
+                        "unable to read specified .inf file".to_string(),
+                    )))?;
             }
         }
 
@@ -282,7 +303,11 @@ impl<T: BufRead> ComtradeParser<T> {
     fn load_cff(&mut self) -> ParseResult<()> {
         let file = match &mut self.cff_file {
             Some(reader) => reader,
-            None => return Err(ParseError::new("tried to parse .cff file, but file not specified".to_string())),
+            None => {
+                return Err(ParseError::new(
+                    "tried to parse .cff file, but file not specified".to_string(),
+                ))
+            }
         };
 
         let mut cfg_lines: Vec<String> = vec![];
@@ -306,36 +331,28 @@ impl<T: BufRead> ComtradeParser<T> {
 
             let maybe_file_header_match = CFF_HEADER_REGEXP.captures(line.as_str());
             if let Some(header_match) = maybe_file_header_match {
-                let file_type_token = header_match
-                    .name("file_type")
-                    .ok_or(ParseError::new("unable to find file type in CFF header Regexp".to_string()))?;
+                let file_type_token = header_match.name("file_type").ok_or(ParseError::new(
+                    "unable to find file type in CFF header Regexp".to_string(),
+                ))?;
 
                 let maybe_data_format_token = header_match.name("data_format");
                 let maybe_data_size_token = header_match.name("data_size");
 
-                current_file = Some(
-                    FileType::from_str(file_type_token.as_str().to_string())?
-                );
+                current_file = Some(FileType::from_str(file_type_token.as_str().to_string())?);
 
                 if let Some(data_format_token) = maybe_data_format_token {
-                    data_format = Some(
-                        DataFormat::from_str(data_format_token.as_str().to_string())?
-                    );
+                    data_format = Some(DataFormat::from_str(
+                        data_format_token.as_str().to_string(),
+                    )?);
                 }
 
                 if let Some(data_size_token) = maybe_data_size_token {
-                    data_size = Some(
-                        data_size_token
-                            .as_str()
-                            .to_string()
-                            .parse::<usize>()
-                            .or(Err(ParseError::new(
-                                format!(
-                                    "unable to parse .dat size: '{}'",
-                                    data_size_token.as_str()
-                                ))
-                            ))?
-                    )
+                    data_size = Some(data_size_token.as_str().to_string().parse::<usize>().or(
+                        Err(ParseError::new(format!(
+                            "unable to parse .dat size: '{}'",
+                            data_size_token.as_str()
+                        ))),
+                    )?)
                 }
 
                 continue;
@@ -346,7 +363,11 @@ impl<T: BufRead> ComtradeParser<T> {
                 Some(FileType::Dat) => dat_lines.push(line),
                 Some(FileType::Hdr) => hdr_lines.push(line),
                 Some(FileType::Inf) => inf_lines.push(line),
-                None => return Err(ParseError::new("encountered file contents line before header in .cff".to_string())),
+                None => {
+                    return Err(ParseError::new(
+                        "encountered file contents line before header in .cff".to_string(),
+                    ))
+                }
             }
         }
 
@@ -382,16 +403,18 @@ impl<T: BufRead> ComtradeParser<T> {
 
         // We need this value later to know when to quit.
         self.builder.station_name(line_values[0].trim().to_string());
-        self.builder.recording_device_id(line_values[1].trim().to_string());
+        self.builder
+            .recording_device_id(line_values[1].trim().to_string());
 
         let format_revision = match line_values.len() {
-            3 => {
-                FormatRevision::from_str(line_values[2].trim())?
+            3 => FormatRevision::from_str(line_values[2].trim())?,
+            2 => FormatRevision::Revision1991,
+            _ => {
+                return Err(ParseError::new(format!(
+                    "unexpected number of values on line {}",
+                    line_number
+                )))
             }
-            2 => {
-                FormatRevision::Revision1991
-            }
-            _ => return Err(ParseError::new(format!("unexpected number of values on line {}", line_number))),
         };
         self.builder.revision(format_revision);
 
@@ -403,14 +426,21 @@ impl<T: BufRead> ComtradeParser<T> {
         // Number and type of channels:
         // TT,##A,##D
         if line_values.len() != 3 {
-            return Err(ParseError::new(format!("unexpected number of values on line {}", line_number)));
+            return Err(ParseError::new(format!(
+                "unexpected number of values on line {}",
+                line_number
+            )));
         }
 
-        let num_total_channels = line_values[0]
-            .trim()
-            .to_string()
-            .parse()
-            .or(Err(ParseError::new(format!("invalid integer value for number of total channels: '{}'", line_values[0]))))?;
+        let num_total_channels =
+            line_values[0]
+                .trim()
+                .to_string()
+                .parse()
+                .or(Err(ParseError::new(format!(
+                    "invalid integer value for number of total channels: '{}'",
+                    line_values[0]
+                ))))?;
         self.builder.num_total_channels(num_total_channels);
 
         let mut num_analog_channels_token = line_values[1].to_string();
@@ -420,7 +450,10 @@ impl<T: BufRead> ComtradeParser<T> {
             .trim()
             .to_string()
             .parse()
-            .or(Err(ParseError::new(format!("invalid integer value for number of analog channels: '{}'", num_analog_channels_token))))?;
+            .or(Err(ParseError::new(format!(
+                "invalid integer value for number of analog channels: '{}'",
+                num_analog_channels_token
+            ))))?;
         self.builder.num_analog_channels(num_analog_channels);
         self.num_analog_channels = num_analog_channels;
 
@@ -431,14 +464,19 @@ impl<T: BufRead> ComtradeParser<T> {
             .trim()
             .to_string()
             .parse()
-            .or(Err(ParseError::new(format!("invalid integer value for number of status channels: '{}'", num_status_channels_token))))?;
+            .or(Err(ParseError::new(format!(
+                "invalid integer value for number of status channels: '{}'",
+                num_status_channels_token
+            ))))?;
         self.builder.num_status_channels(num_status_channels);
         self.num_status_channels = num_status_channels;
 
         line_number += 1;
 
-        let mut analog_channels: Vec<AnalogChannel> = Vec::with_capacity(self.num_analog_channels as usize);
-        let mut status_channels: Vec<StatusChannel> = Vec::with_capacity(self.num_status_channels as usize);
+        let mut analog_channels: Vec<AnalogChannel> =
+            Vec::with_capacity(self.num_analog_channels as usize);
+        let mut status_channels: Vec<StatusChannel> =
+            Vec::with_capacity(self.num_status_channels as usize);
 
         // Analog channel information:
         // An,ch_id,ph,ccbm,uu,a,b,skew,min,max,primary,secondary,PS
@@ -447,109 +485,96 @@ impl<T: BufRead> ComtradeParser<T> {
             line_values = line.split(CFG_SEPARATOR).collect();
 
             if line_values.len() != 13 {
-                return Err(ParseError::new(format!("unexpected number of values on line {}", line_number)));
+                return Err(ParseError::new(format!(
+                    "unexpected number of values on line {}",
+                    line_number
+                )));
             }
 
-            let analog_index = line_values[0]
-                .trim()
-                .to_string()
-                .parse::<u32>()
-                .or(Err(ParseError::new(
-                    format!(
+            let analog_index =
+                line_values[0]
+                    .trim()
+                    .to_string()
+                    .parse::<u32>()
+                    .or(Err(ParseError::new(format!(
                         "invalid integer value for analog channel {} index: {}",
-                        i,
-                        line_values[0]
-                    ))
-                ))?;
+                        i, line_values[0]
+                    ))))?;
 
             let name = line_values[1].trim().to_string();
             let phase = line_values[2].trim().to_string(); // Non-critical.
             let circuit_component_being_monitored = line_values[3].trim().to_string(); // Non-critical.
             let units = line_values[4].trim().to_string();
 
-            let multiplier = line_values[5]
-                .trim()
-                .to_string()
-                .parse::<f64>()
-                .or(Err(ParseError::new(
-                    format!(
+            let multiplier =
+                line_values[5]
+                    .trim()
+                    .to_string()
+                    .parse::<f64>()
+                    .or(Err(ParseError::new(format!(
                         "invalid real numeric value for analog channel {} multiplier: {}",
-                        i,
-                        line_values[5]
-                    ))
-                ))?;
+                        i, line_values[5]
+                    ))))?;
 
-            let offset_adder = line_values[6]
-                .trim()
-                .to_string()
-                .parse::<f64>()
-                .or(Err(ParseError::new(
-                    format!(
+            let offset_adder =
+                line_values[6]
+                    .trim()
+                    .to_string()
+                    .parse::<f64>()
+                    .or(Err(ParseError::new(format!(
                         "invalid real numeric value for analog channel {} offset adder: {}",
-                        i,
-                        line_values[6]
-                    ))
-                ))?;
+                        i, line_values[6]
+                    ))))?;
 
-            let skew = line_values[7]
-                .trim()
-                .to_string()
-                .parse::<f64>()
-                .or(Err(ParseError::new(
-                    format!(
+            let skew =
+                line_values[7]
+                    .trim()
+                    .to_string()
+                    .parse::<f64>()
+                    .or(Err(ParseError::new(format!(
                         "invalid real numeric value for analog channel {} skew: {}",
-                        i,
-                        line_values[7]
-                    ))
-                ))?;
+                        i, line_values[7]
+                    ))))?;
 
-            let min_value = line_values[8]
-                .trim()
-                .to_string()
-                .parse::<f64>()
-                .or(Err(ParseError::new(
-                    format!(
+            let min_value =
+                line_values[8]
+                    .trim()
+                    .to_string()
+                    .parse::<f64>()
+                    .or(Err(ParseError::new(format!(
                         "invalid real numeric value for analog channel {} minimum value: {}",
-                        i,
-                        line_values[8]
-                    ))
-                ))?;
+                        i, line_values[8]
+                    ))))?;
 
-            let max_value = line_values[9]
-                .trim()
-                .to_string()
-                .parse::<f64>()
-                .or(Err(ParseError::new(
-                    format!(
+            let max_value =
+                line_values[9]
+                    .trim()
+                    .to_string()
+                    .parse::<f64>()
+                    .or(Err(ParseError::new(format!(
                         "invalid real numeric value for analog channel {} maximum value: {}",
-                        i,
-                        line_values[9]
-                    ))
-                ))?;
+                        i, line_values[9]
+                    ))))?;
 
-            let primary_factor = line_values[10]
-                .trim()
-                .to_string()
-                .parse::<f64>()
-                .or(Err(ParseError::new(
-                    format!(
+            let primary_factor =
+                line_values[10]
+                    .trim()
+                    .to_string()
+                    .parse::<f64>()
+                    .or(Err(ParseError::new(format!(
                         "invalid real numeric value for analog channel {} primary factor: {}",
-                        i,
-                        line_values[10]
-                    ))
-                ))?;
+                        i, line_values[10]
+                    ))))?;
 
-            let secondary_factor = line_values[11]
-                .trim()
-                .to_string()
-                .parse::<f64>()
-                .or(Err(ParseError::new(
-                    format!(
+            let secondary_factor =
+                line_values[11]
+                    .trim()
+                    .to_string()
+                    .parse::<f64>()
+                    .or(Err(ParseError::new(format!(
                         "invalid real numeric value for analog channel {} secondary factor: {}",
-                        i,
-                        line_values[11]
-                    ))
-                ))?;
+                        i, line_values[11]
+                    ))))?;
 
             let scaling_mode = AnalogScalingMode::from_str(line_values[12].trim())?;
 
@@ -580,36 +605,35 @@ impl<T: BufRead> ComtradeParser<T> {
             line_values = line.split(CFG_SEPARATOR).collect();
 
             if line_values.len() != 5 {
-                return Err(ParseError::new(format!("unexpected number of values on line {}", line_number)));
+                return Err(ParseError::new(format!(
+                    "unexpected number of values on line {}",
+                    line_number
+                )));
             }
 
-            let status_index = line_values[0]
-                .trim()
-                .to_string()
-                .parse::<u32>()
-                .or(Err(ParseError::new(
-                    format!(
+            let status_index =
+                line_values[0]
+                    .trim()
+                    .to_string()
+                    .parse::<u32>()
+                    .or(Err(ParseError::new(format!(
                         "invalid integer value for status channel {} index: {}",
-                        i,
-                        line_values[0]
-                    ))
-                ))?;
+                        i, line_values[0]
+                    ))))?;
 
             let name = line_values[1].trim().to_string();
             let phase = line_values[2].trim().to_string(); // Non-critical.
             let circuit_component_being_monitored = line_values[3].trim().to_string(); // Non-critical.
 
-            let normal_status_value = line_values[4]
-                .trim()
-                .to_string()
-                .parse::<u8>()
-                .or(Err(ParseError::new(
-                    format!(
+            let normal_status_value =
+                line_values[4]
+                    .trim()
+                    .to_string()
+                    .parse::<u8>()
+                    .or(Err(ParseError::new(format!(
                         "invalid integer value for status channel {} normal value: {}",
-                        i,
-                        line_values[4]
-                    ))
-                ))?;
+                        i, line_values[4]
+                    ))))?;
             if normal_status_value != 0 && normal_status_value != 1 {
                 return Err(ParseError::new(format!("invalid normal status value for status channel {}: {}; expected one of : '0', '1'", i, line_values[4])));
             }
@@ -634,12 +658,10 @@ impl<T: BufRead> ComtradeParser<T> {
             .trim()
             .to_string()
             .parse::<f64>()
-            .or(Err(ParseError::new(
-                format!(
-                    "invalid real numeric value for line frequency: '{}'",
-                    line,
-                ))
-            ))?;
+            .or(Err(ParseError::new(format!(
+                "invalid real numeric value for line frequency: '{}'",
+                line,
+            ))))?;
         self.builder.line_frequency(line_frequency);
 
         line_number += 1;
@@ -651,19 +673,21 @@ impl<T: BufRead> ComtradeParser<T> {
         // nrates (x 1)
         // samp,endsamp (x nrates)
         if line_values.len() != 1 {
-            return Err(ParseError::new(format!("unexpected number of values on line {}", line_number)));
+            return Err(ParseError::new(format!(
+                "unexpected number of values on line {}",
+                line_number
+            )));
         }
 
-        let num_sampling_rates = line_values[0]
-            .trim()
-            .to_string()
-            .parse::<u32>()
-            .or(Err(ParseError::new(
-                format!(
+        let num_sampling_rates =
+            line_values[0]
+                .trim()
+                .to_string()
+                .parse::<u32>()
+                .or(Err(ParseError::new(format!(
                     "invalid integer value for number of sample rates: {}",
                     line_values[0]
-                ))
-            ))?;
+                ))))?;
 
         let mut sampling_rates: Vec<SamplingRate> = Vec::with_capacity(num_sampling_rates as usize);
 
@@ -672,37 +696,34 @@ impl<T: BufRead> ComtradeParser<T> {
             line_values = line.split(CFG_SEPARATOR).collect();
 
             if line_values.len() != 2 {
-                return Err(ParseError::new(format!("unexpected number of values on line {}", line_number)));
+                return Err(ParseError::new(format!(
+                    "unexpected number of values on line {}",
+                    line_number
+                )));
             }
 
             // The sample rate in Hertz of this sample.
-            let rate_hz = line_values[0]
-                .trim()
-                .to_string()
-                .parse::<f64>()
-                .or(Err(ParseError::new(
-                    format!(
-                        "invalid float value for sample rate frequency for rate n# {} on line {}: {}",
-                        i,
-                        line_number,
-                        line_values[0]
-                    ))
-                ))?;
+            let rate_hz =
+                line_values[0]
+                    .trim()
+                    .to_string()
+                    .parse::<f64>()
+                    .or(Err(ParseError::new(format!(
+                    "invalid float value for sample rate frequency for rate n# {} on line {}: {}",
+                    i, line_number, line_values[0]
+                ))))?;
 
             // The sample number of the final sample that uses this sample rate. Note this corresponds
             // to the sample number value in the data itself, not an index.
-            let end_sample_number = line_values[1]
-                .trim()
-                .to_string()
-                .parse::<u32>()
-                .or(Err(ParseError::new(
-                    format!(
+            let end_sample_number =
+                line_values[1]
+                    .trim()
+                    .to_string()
+                    .parse::<u32>()
+                    .or(Err(ParseError::new(format!(
                         "invalid integer value for end sample number for rate n# {} on line {}: {}",
-                        i,
-                        line_number,
-                        line_values[1]
-                    ))
-                ))?;
+                        i, line_number, line_values[1]
+                    ))))?;
 
             sampling_rates.push(SamplingRate {
                 rate_hz,
@@ -729,28 +750,24 @@ impl<T: BufRead> ComtradeParser<T> {
         // dd/mm/yyyy,hh:mm:ss.ssssss
 
         // Time of the first data sample in data file.
-        let start_time = NaiveDateTime::parse_from_str(line.trim(), CFG_DATETIME_FORMAT)
-            .or(Err(ParseError::new(
-                format!(
-                    "invalid datetime value for start time on line {}: {}",
-                    line_number,
-                    line,
-                ))
-            ))?;
+        let start_time = NaiveDateTime::parse_from_str(line.trim(), CFG_DATETIME_FORMAT).or(
+            Err(ParseError::new(format!(
+                "invalid datetime value for start time on line {}: {}",
+                line_number, line,
+            ))),
+        )?;
         self.builder.start_time(start_time);
 
         line_number += 1;
         line = lines.next().ok_or(early_end_err.clone())?;
 
         // Time that the COMTRADE record recording was triggered.
-        let trigger_time = NaiveDateTime::parse_from_str(line.trim(), CFG_DATETIME_FORMAT)
-            .or(Err(ParseError::new(
-                format!(
-                    "invalid datetime value for trigger time on line {}: {}",
-                    line_number,
-                    line,
-                ))
-            ))?;
+        let trigger_time = NaiveDateTime::parse_from_str(line.trim(), CFG_DATETIME_FORMAT).or(
+            Err(ParseError::new(format!(
+                "invalid datetime value for trigger time on line {}: {}",
+                line_number, line,
+            ))),
+        )?;
         self.builder.trigger_time(trigger_time);
 
         line_number += 1;
@@ -758,11 +775,12 @@ impl<T: BufRead> ComtradeParser<T> {
 
         // Data file type
         // ft
-        self.builder.data_format(DataFormat::from_str(line.to_lowercase())?);
+        self.builder
+            .data_format(DataFormat::from_str(line.to_lowercase())?);
 
         // 1991 format ends here - rest of values are 1999 and 2013 only.
         if format_revision == FormatRevision::Revision1991 {
-            return Ok(())
+            return Ok(());
         }
 
         line_number += 1;
@@ -775,21 +793,15 @@ impl<T: BufRead> ComtradeParser<T> {
         // Regardless, this multiplicative factor allows you to store longer time ranges
         // within a single COMTRADE record.
 
-        let time_mult = line
-            .trim()
-            .parse::<f64>()
-            .or(Err(ParseError::new(
-                format!(
-                    "invalid float value for time multiplication factor on line {}: {}",
-                    line_number,
-                    line,
-                ))
-            ))?;
+        let time_mult = line.trim().parse::<f64>().or(Err(ParseError::new(format!(
+            "invalid float value for time multiplication factor on line {}: {}",
+            line_number, line,
+        ))))?;
         self.builder.timestamp_multiplication_factor(time_mult);
 
         // 1999 format ends here - rest of values are 2013 only.
         if format_revision == FormatRevision::Revision1999 {
-            return Ok(())
+            return Ok(());
         }
 
         line_number += 1;
@@ -799,7 +811,8 @@ impl<T: BufRead> ComtradeParser<T> {
         // Time information and relationship between local time and UTC
         // time_code, local_code
         self.builder.time_offset(parse_time_offset(line_values[0])?);
-        self.builder.local_offset(parse_time_offset(line_values[1])?);
+        self.builder
+            .local_offset(parse_time_offset(line_values[1])?);
 
         line_number += 1;
         line = lines.next().ok_or(early_end_err.clone())?;
@@ -865,39 +878,32 @@ fn parse_time_offset(offset_str: &str) -> ParseResult<Option<FixedOffset>> {
     // Offset specified as number + minutes, e.g. "-7h15", "+9h45".
     let time_split: Vec<&str> = time_value.split("h").collect();
     if time_split.len() != 2 {
-        return Err(ParseError::new(
-            format!(
-                "invalid time offset on line: {}",
-                time_value,
-            )));
+        return Err(ParseError::new(format!(
+            "invalid time offset on line: {}",
+            time_value,
+        )));
     }
 
     let hours = time_split[0]
         .trim()
         .parse::<i32>()
-        .or(
-            Err(ParseError::new(
-                format!(
-                    "invalid hour offset in time offset: {} in {}",
-                    time_split[0],
-                    time_value,
-                )
-            ))
-        )?;
+        .or(Err(ParseError::new(format!(
+            "invalid hour offset in time offset: {} in {}",
+            time_split[0], time_value,
+        ))))?;
     let minutes = time_split[1]
         .trim()
         .parse::<i32>()
-        .or(
-            Err(ParseError::new(
-                format!(
-                    "invalid minute offset in time offset: {} in {}",
-                    time_split[1],
-                    time_value,
-                )
-            ))
-        )?;
+        .or(Err(ParseError::new(format!(
+            "invalid minute offset in time offset: {} in {}",
+            time_split[1], time_value,
+        ))))?;
 
-    let total_offset = if hours > 0 { hours * 3600 + minutes * 60 } else { hours * 3600 - minutes * 60 };
+    let total_offset = if hours > 0 {
+        hours * 3600 + minutes * 60
+    } else {
+        hours * 3600 - minutes * 60
+    };
 
     return Ok(Some(FixedOffset::east(total_offset)));
 }
