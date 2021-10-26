@@ -9,9 +9,9 @@ This library provides a native Rust library for parsing [COMTRADE](https://en.wi
 | Task | Status |
 | ---- | ------ |
 | Implement parsing .cfg files (encoded in ASCII) | Working (1991, 1999, 2013) |
-| Implement parsing .cfg files (encoded in UTF-8) | Todo |
+| Implement parsing .cfg files (encoded in UTF-8) | May work? Need to test. |
 | Implement parsing .cfg files (encoded in other encodings such as latin1) | Todo |
-| Implement parsing ACSII data files | Todo |
+| Implement parsing ACSII data files | Working |
 | Implement parsing binary16 data files | Todo |
 | Implement parsing binary32 data files | Todo |
 | Implement parsing float32 data files | Todo |
