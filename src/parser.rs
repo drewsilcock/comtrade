@@ -196,7 +196,8 @@ pub struct ComtradeParser<T: BufRead> {
     inf_file: Option<T>,
 
     cfg_contents: String,
-    dat_contents: String,
+    ascii_dat_contents: String,
+    binary_dat_contents: Vec<u8>,
     hdr_contents: String,
     inf_contents: String,
 
@@ -222,7 +223,8 @@ impl<T: BufRead> ComtradeParser<T> {
             inf_file,
 
             cfg_contents: String::new(),
-            dat_contents: String::new(),
+            ascii_dat_contents: String::new(),
+            binary_dat_contents: vec![],
             hdr_contents: String::new(),
             inf_contents: String::new(),
 
@@ -251,6 +253,8 @@ impl<T: BufRead> ComtradeParser<T> {
     pub fn parse(mut self) -> ParseResult<Comtrade> {
         if self.cff_file.is_some() {
             self.load_cff()?;
+            self.parse_cfg()?;
+            self.parse_dat()?;
         } else {
             if let Some(ref mut cfg_file) = self.cfg_file {
                 cfg_file
@@ -264,17 +268,34 @@ impl<T: BufRead> ComtradeParser<T> {
                 ));
             }
 
+            self.parse_cfg()?;
+
             if let Some(ref mut dat_file) = self.dat_file {
-                dat_file
-                    .read_to_string(&mut self.dat_contents)
-                    .or(Err(ParseError::new(
-                        "unable to read specified .dat file".to_string(),
-                    )))?;
+                match self.data_format {
+                    Some(DataFormat::Ascii) => {
+                        dat_file
+                            .read_to_string(&mut self.ascii_dat_contents)
+                            .or(Err(ParseError::new(
+                                "unable to read specified .dat file".into(),
+                            )))?;
+                    }
+                    None => {
+                        return Err(ParseError::new("unknown data format for data file.".into()));
+                    }
+                    // Other binary format.
+                    _ => {
+                        dat_file.read_to_end(&mut self.binary_dat_contents).or(Err(
+                            ParseError::new("unable to read specified .dat file".into()),
+                        ))?;
+                    }
+                }
             } else {
                 return Err(ParseError::new(
                     "you must specify either .cff or .dat file".to_string(),
                 ));
             }
+
+            self.parse_dat()?;
 
             if let Some(ref mut hdr_file) = self.hdr_file {
                 hdr_file
@@ -292,9 +313,6 @@ impl<T: BufRead> ComtradeParser<T> {
                     )))?;
             }
         }
-
-        self.parse_cfg()?;
-        self.parse_dat()?;
 
         // `.hdr` and `.inf` files don't need parsing - if present they're
         // non-machine-readable text files for reference for humans to look at.
@@ -381,7 +399,7 @@ impl<T: BufRead> ComtradeParser<T> {
         //  into a string. This would allow for buffered reading of separate files, at least.
 
         self.cfg_contents = cfg_lines.join("\n");
-        self.dat_contents = dat_lines.join("\n");
+        self.ascii_dat_contents = dat_lines.join("\n");
         self.hdr_contents = hdr_lines.join("\n");
         self.inf_contents = inf_lines.join("\n");
 
@@ -807,6 +825,12 @@ impl<T: BufRead> ComtradeParser<T> {
         ))))?;
         self.builder.timestamp_multiplication_factor(time_mult);
 
+        // Default values for optional revision-based fields.
+        self.builder.time_offset(None);
+        self.builder.local_offset(None);
+        self.builder.time_quality(None);
+        self.builder.leap_second_status(None);
+
         // 1999 format ends here - rest of values are 2013 only.
         if format_revision == FormatRevision::Revision1999 {
             return Ok(());
@@ -840,9 +864,9 @@ impl<T: BufRead> ComtradeParser<T> {
     fn parse_dat(&mut self) -> ParseResult<()> {
         match self.data_format {
             Some(DataFormat::Ascii) => self.parse_dat_ascii(),
-            Some(DataFormat::Binary16) => todo!(),
-            Some(DataFormat::Binary32) => todo!(),
-            Some(DataFormat::Float32) => todo!(),
+            Some(DataFormat::Binary16) => self.parse_dat_binary16(),
+            Some(DataFormat::Binary32) => self.parse_dat_binary32(),
+            Some(DataFormat::Float32) => self.parse_dat_float32(),
             None => Err(ParseError::new("Data format not specified.".into())),
         }
     }
@@ -859,7 +883,7 @@ impl<T: BufRead> ComtradeParser<T> {
         let mut timestamps: Vec<Option<u32>> = Vec::with_capacity(0);
 
         for (i, line) in self
-            .dat_contents
+            .ascii_dat_contents
             .split("\n")
             .filter(|l| !l.trim().is_empty())
             .enumerate()
@@ -923,6 +947,33 @@ impl<T: BufRead> ComtradeParser<T> {
 
         self.builder.sample_numbers(sample_numbers);
         self.builder.timestamps(timestamps);
+
+        Ok(())
+    }
+
+    fn parse_dat_binary16(&mut self) -> ParseResult<()> {
+        self.builder.sample_numbers(vec![]);
+        self.builder.timestamps(vec![]);
+
+        // TODO
+
+        Ok(())
+    }
+
+    fn parse_dat_binary32(&mut self) -> ParseResult<()> {
+        self.builder.sample_numbers(vec![]);
+        self.builder.timestamps(vec![]);
+
+        // TODO
+
+        Ok(())
+    }
+
+    fn parse_dat_float32(&mut self) -> ParseResult<()> {
+        self.builder.sample_numbers(vec![]);
+        self.builder.timestamps(vec![]);
+
+        // TODO
 
         Ok(())
     }
