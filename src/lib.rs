@@ -65,6 +65,16 @@ pub struct AnalogChannel {
     pub secondary_factor: f64,
 
     pub scaling_mode: AnalogScalingMode,
+
+    pub data: Vec<f64>,
+}
+
+impl AnalogChannel {
+    fn push_datum(&mut self, value: f64) {
+        self.data.push(value);
+    }
+
+    // TODO: Method for retrieving datum at index / sample number including value and time calculations.
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -74,6 +84,16 @@ pub struct StatusChannel {
     pub phase: String,
     pub circuit_component_being_monitored: String,
     pub normal_status_value: u8,
+
+    pub data: Vec<u8>, // Values are 0 or 1.
+}
+
+impl StatusChannel {
+    fn push_datum(&mut self, value: u8) {
+        self.data.push(value);
+    }
+
+    // TODO: Method for retrieving datum at index / sample number including time calculations.
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -125,7 +145,7 @@ pub enum LeapSecondStatus {
     NotPresent,
 }
 
-#[derive(Debug, Clone, Builder)]
+#[derive(Debug, Clone, Builder, PartialEq)]
 pub struct Comtrade {
     pub station_name: String,
     pub recording_device_id: String,
@@ -136,6 +156,8 @@ pub struct Comtrade {
     pub num_analog_channels: u32,
     pub num_status_channels: u32,
 
+    pub sample_numbers: Vec<u32>,
+    pub timestamps: Vec<Option<u32>>,
     pub analog_channels: Vec<AnalogChannel>,
     pub status_channels: Vec<StatusChannel>,
 
@@ -170,6 +192,8 @@ impl Default for Comtrade {
             num_total_channels: Default::default(),
             num_analog_channels: Default::default(),
             num_status_channels: Default::default(),
+            sample_numbers: Default::default(),
+            timestamps: Default::default(),
             analog_channels: Default::default(),
             status_channels: Default::default(),
             line_frequency: Default::default(),
