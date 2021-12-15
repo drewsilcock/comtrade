@@ -1,4 +1,4 @@
-# comtrade-rs
+# comtrade - Pure Rust library for parsing and manipulating COMTRADE files.
 
 *Warning: this library is a WIP and not yet ready for production usage.*
 

@@ -1,12 +1,12 @@
 [package]
-name = "comtrade-rs"
+name = "comtrade"
 version = "0.2.1"
 authors = ["Drew Silcock <drew.silcock@stfc.ac.uk>"]
 edition = "2021"
 license = "MIT"
 description = "A pure Rust parser for the COMTRADE (Common format for Transient Data Exchange for power systems) file format."
-homepage = "https://github.com/drewsilcock/comtrade-rs"
-repository = "https://github.com/drewsilcock/comtrade-rs"
+homepage = "https://github.com/drewsilcock/comtrade"
+repository = "https://github.com/drewsilcock/comtrade"
 keywords = ["power", "voltage", "disturbance", "comtrade", "oscillography"]
 categories = ["parser-implementations", "science"]
 readme = "README.md"

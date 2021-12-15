@@ -4,7 +4,7 @@ use std::path::Path;
 
 use chrono::{FixedOffset, NaiveDate, NaiveDateTime};
 
-use comtrade_rs::{
+use comtrade::{
     AnalogChannel, AnalogScalingMode, Comtrade, ComtradeParserBuilder, DataFormat, FormatRevision,
     LeapSecondStatus, SamplingRate, StatusChannel, TimeQuality,
 };
