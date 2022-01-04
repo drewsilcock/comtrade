@@ -260,7 +260,13 @@ fn it_correctly_parses_sample_2013_files_with_binary16_data() {
                 primary_factor: 120.0,
                 secondary_factor: 1.0,
                 scaling_mode: AnalogScalingMode::Primary,
-                data: vec![],
+                data: vec![
+                    -9.038625717163086,
+                    -8.890992164611816,
+                    -8.703554153442383,
+                    -8.476312637329102,
+                    -8.246539115905762,
+                ],
             },
             AnalogChannel {
                 index: 2,
@@ -276,7 +282,13 @@ fn it_correctly_parses_sample_2013_files_with_binary16_data() {
                 primary_factor: 120.0,
                 secondary_factor: 1.0,
                 scaling_mode: AnalogScalingMode::Primary,
-                data: vec![],
+                data: vec![
+                    -1.4282850027084350,
+                    -1.6440821886062622,
+                    -1.8617081642150880,
+                    -2.0796999931335450,
+                    -2.2852559089660645,
+                ],
             },
             AnalogChannel {
                 index: 3,
@@ -292,7 +304,13 @@ fn it_correctly_parses_sample_2013_files_with_binary16_data() {
                 primary_factor: 120.0,
                 secondary_factor: 1.0,
                 scaling_mode: AnalogScalingMode::Primary,
-                data: vec![],
+                data: vec![
+                    10.302122116088867,
+                    10.383867263793945,
+                    10.435143470764160,
+                    10.448148727416992,
+                    10.444433212280273,
+                ],
             },
             AnalogChannel {
                 index: 4,
@@ -308,7 +326,13 @@ fn it_correctly_parses_sample_2013_files_with_binary16_data() {
                 primary_factor: 60.0,
                 secondary_factor: 1.0,
                 scaling_mode: AnalogScalingMode::Primary,
-                data: vec![],
+                data: vec![
+                    0.20307831466197968,
+                    0.19676148891448975,
+                    0.19100543856620789,
+                    0.18787176907062530,
+                    0.18261049687862396,
+                ],
             },
         ],
 
@@ -319,7 +343,7 @@ fn it_correctly_parses_sample_2013_files_with_binary16_data() {
                 phase: "".to_string(),
                 circuit_component_being_monitored: "".to_string(),
                 normal_status_value: 0,
-                data: vec![],
+                data: vec![0, 0, 0, 0, 0],
             },
             StatusChannel {
                 index: 2,
@@ -327,7 +351,7 @@ fn it_correctly_parses_sample_2013_files_with_binary16_data() {
                 phase: "".to_string(),
                 circuit_component_being_monitored: "".to_string(),
                 normal_status_value: 0,
-                data: vec![],
+                data: vec![0, 0, 0, 0, 0],
             },
             StatusChannel {
                 index: 3,
@@ -335,7 +359,7 @@ fn it_correctly_parses_sample_2013_files_with_binary16_data() {
                 phase: "".to_string(),
                 circuit_component_being_monitored: "".to_string(),
                 normal_status_value: 0,
-                data: vec![],
+                data: vec![0, 0, 0, 0, 0],
             },
             StatusChannel {
                 index: 4,
@@ -343,7 +367,7 @@ fn it_correctly_parses_sample_2013_files_with_binary16_data() {
                 phase: "".to_string(),
                 circuit_component_being_monitored: "".to_string(),
                 normal_status_value: 0,
-                data: vec![],
+                data: vec![0, 0, 0, 0, 0],
             },
             StatusChannel {
                 index: 5,
@@ -351,7 +375,7 @@ fn it_correctly_parses_sample_2013_files_with_binary16_data() {
                 phase: "".to_string(),
                 circuit_component_being_monitored: "".to_string(),
                 normal_status_value: 0,
-                data: vec![],
+                data: vec![0, 0, 0, 0, 0],
             },
             StatusChannel {
                 index: 6,
@@ -359,7 +383,7 @@ fn it_correctly_parses_sample_2013_files_with_binary16_data() {
                 phase: "".to_string(),
                 circuit_component_being_monitored: "".to_string(),
                 normal_status_value: 0,
-                data: vec![],
+                data: vec![0, 0, 0, 0, 0],
             },
             StatusChannel {
                 index: 7,
@@ -367,7 +391,7 @@ fn it_correctly_parses_sample_2013_files_with_binary16_data() {
                 phase: "".to_string(),
                 circuit_component_being_monitored: "".to_string(),
                 normal_status_value: 0,
-                data: vec![],
+                data: vec![0, 0, 0, 0, 0],
             },
             StatusChannel {
                 index: 8,
@@ -375,7 +399,7 @@ fn it_correctly_parses_sample_2013_files_with_binary16_data() {
                 phase: "".to_string(),
                 circuit_component_being_monitored: "".to_string(),
                 normal_status_value: 0,
-                data: vec![],
+                data: vec![0, 0, 0, 0, 0],
             },
             StatusChannel {
                 index: 9,
@@ -383,7 +407,7 @@ fn it_correctly_parses_sample_2013_files_with_binary16_data() {
                 phase: "".to_string(),
                 circuit_component_being_monitored: "".to_string(),
                 normal_status_value: 0,
-                data: vec![],
+                data: vec![0, 0, 0, 0, 0],
             },
             StatusChannel {
                 index: 10,
@@ -391,7 +415,7 @@ fn it_correctly_parses_sample_2013_files_with_binary16_data() {
                 phase: "".to_string(),
                 circuit_component_being_monitored: "".to_string(),
                 normal_status_value: 0,
-                data: vec![],
+                data: vec![0, 0, 0, 0, 0],
             },
             StatusChannel {
                 index: 11,
@@ -399,7 +423,7 @@ fn it_correctly_parses_sample_2013_files_with_binary16_data() {
                 phase: "".to_string(),
                 circuit_component_being_monitored: "".to_string(),
                 normal_status_value: 0,
-                data: vec![],
+                data: vec![0, 0, 0, 0, 0],
             },
             StatusChannel {
                 index: 12,
@@ -407,7 +431,7 @@ fn it_correctly_parses_sample_2013_files_with_binary16_data() {
                 phase: "".to_string(),
                 circuit_component_being_monitored: "".to_string(),
                 normal_status_value: 0,
-                data: vec![],
+                data: vec![0, 0, 0, 0, 0],
             },
             StatusChannel {
                 index: 13,
@@ -415,7 +439,7 @@ fn it_correctly_parses_sample_2013_files_with_binary16_data() {
                 phase: "".to_string(),
                 circuit_component_being_monitored: "".to_string(),
                 normal_status_value: 0,
-                data: vec![],
+                data: vec![0, 0, 0, 0, 0],
             },
             StatusChannel {
                 index: 14,
@@ -423,7 +447,7 @@ fn it_correctly_parses_sample_2013_files_with_binary16_data() {
                 phase: "".to_string(),
                 circuit_component_being_monitored: "".to_string(),
                 normal_status_value: 0,
-                data: vec![],
+                data: vec![0, 0, 0, 0, 0],
             },
             StatusChannel {
                 index: 15,
@@ -431,7 +455,7 @@ fn it_correctly_parses_sample_2013_files_with_binary16_data() {
                 phase: "".to_string(),
                 circuit_component_being_monitored: "".to_string(),
                 normal_status_value: 0,
-                data: vec![],
+                data: vec![0, 0, 0, 0, 0],
             },
             StatusChannel {
                 index: 16,
@@ -439,7 +463,7 @@ fn it_correctly_parses_sample_2013_files_with_binary16_data() {
                 phase: "".to_string(),
                 circuit_component_being_monitored: "".to_string(),
                 normal_status_value: 0,
-                data: vec![],
+                data: vec![0, 0, 0, 0, 0],
             },
         ],
     };
@@ -879,7 +903,13 @@ fn it_correctly_parses_sample_1999_files_with_binary16_data() {
                 primary_factor: 120.0,
                 secondary_factor: 1.0,
                 scaling_mode: AnalogScalingMode::Primary,
-                data: vec![],
+                data: vec![
+                    -9.038625717163086,
+                    -8.890992164611816,
+                    -8.703554153442383,
+                    -8.476312637329102,
+                    -8.246539115905762,
+                ],
             },
             AnalogChannel {
                 index: 2,
@@ -895,7 +925,13 @@ fn it_correctly_parses_sample_1999_files_with_binary16_data() {
                 primary_factor: 120.0,
                 secondary_factor: 1.0,
                 scaling_mode: AnalogScalingMode::Primary,
-                data: vec![],
+                data: vec![
+                    -1.4282850027084350,
+                    -1.6440821886062622,
+                    -1.8617081642150880,
+                    -2.0796999931335450,
+                    -2.2852559089660645,
+                ],
             },
             AnalogChannel {
                 index: 3,
@@ -911,7 +947,13 @@ fn it_correctly_parses_sample_1999_files_with_binary16_data() {
                 primary_factor: 120.0,
                 secondary_factor: 1.0,
                 scaling_mode: AnalogScalingMode::Primary,
-                data: vec![],
+                data: vec![
+                    10.302122116088867,
+                    10.383867263793945,
+                    10.435143470764160,
+                    10.448148727416992,
+                    10.444433212280273,
+                ],
             },
             AnalogChannel {
                 index: 4,
@@ -927,7 +969,13 @@ fn it_correctly_parses_sample_1999_files_with_binary16_data() {
                 primary_factor: 60.0,
                 secondary_factor: 1.0,
                 scaling_mode: AnalogScalingMode::Primary,
-                data: vec![],
+                data: vec![
+                    0.20307831466197968,
+                    0.19676148891448975,
+                    0.19100543856620789,
+                    0.18787176907062530,
+                    0.18261049687862396,
+                ],
             },
         ],
 
@@ -938,7 +986,7 @@ fn it_correctly_parses_sample_1999_files_with_binary16_data() {
                 phase: "".to_string(),
                 circuit_component_being_monitored: "".to_string(),
                 normal_status_value: 0,
-                data: vec![],
+                data: vec![0, 0, 0, 0, 0],
             },
             StatusChannel {
                 index: 2,
@@ -946,7 +994,7 @@ fn it_correctly_parses_sample_1999_files_with_binary16_data() {
                 phase: "".to_string(),
                 circuit_component_being_monitored: "".to_string(),
                 normal_status_value: 0,
-                data: vec![],
+                data: vec![0, 0, 0, 0, 0],
             },
             StatusChannel {
                 index: 3,
@@ -954,7 +1002,7 @@ fn it_correctly_parses_sample_1999_files_with_binary16_data() {
                 phase: "".to_string(),
                 circuit_component_being_monitored: "".to_string(),
                 normal_status_value: 0,
-                data: vec![],
+                data: vec![0, 0, 0, 0, 0],
             },
             StatusChannel {
                 index: 4,
@@ -962,7 +1010,7 @@ fn it_correctly_parses_sample_1999_files_with_binary16_data() {
                 phase: "".to_string(),
                 circuit_component_being_monitored: "".to_string(),
                 normal_status_value: 0,
-                data: vec![],
+                data: vec![0, 0, 0, 0, 0],
             },
             StatusChannel {
                 index: 5,
@@ -970,7 +1018,7 @@ fn it_correctly_parses_sample_1999_files_with_binary16_data() {
                 phase: "".to_string(),
                 circuit_component_being_monitored: "".to_string(),
                 normal_status_value: 0,
-                data: vec![],
+                data: vec![0, 0, 0, 0, 0],
             },
             StatusChannel {
                 index: 6,
@@ -978,7 +1026,7 @@ fn it_correctly_parses_sample_1999_files_with_binary16_data() {
                 phase: "".to_string(),
                 circuit_component_being_monitored: "".to_string(),
                 normal_status_value: 0,
-                data: vec![],
+                data: vec![0, 0, 0, 0, 0],
             },
             StatusChannel {
                 index: 7,
@@ -986,7 +1034,7 @@ fn it_correctly_parses_sample_1999_files_with_binary16_data() {
                 phase: "".to_string(),
                 circuit_component_being_monitored: "".to_string(),
                 normal_status_value: 0,
-                data: vec![],
+                data: vec![0, 0, 0, 0, 0],
             },
             StatusChannel {
                 index: 8,
@@ -994,7 +1042,7 @@ fn it_correctly_parses_sample_1999_files_with_binary16_data() {
                 phase: "".to_string(),
                 circuit_component_being_monitored: "".to_string(),
                 normal_status_value: 0,
-                data: vec![],
+                data: vec![0, 0, 0, 0, 0],
             },
             StatusChannel {
                 index: 9,
@@ -1002,7 +1050,7 @@ fn it_correctly_parses_sample_1999_files_with_binary16_data() {
                 phase: "".to_string(),
                 circuit_component_being_monitored: "".to_string(),
                 normal_status_value: 0,
-                data: vec![],
+                data: vec![0, 0, 0, 0, 0],
             },
             StatusChannel {
                 index: 10,
@@ -1010,7 +1058,7 @@ fn it_correctly_parses_sample_1999_files_with_binary16_data() {
                 phase: "".to_string(),
                 circuit_component_being_monitored: "".to_string(),
                 normal_status_value: 0,
-                data: vec![],
+                data: vec![0, 0, 0, 0, 0],
             },
             StatusChannel {
                 index: 11,
@@ -1018,7 +1066,7 @@ fn it_correctly_parses_sample_1999_files_with_binary16_data() {
                 phase: "".to_string(),
                 circuit_component_being_monitored: "".to_string(),
                 normal_status_value: 0,
-                data: vec![],
+                data: vec![0, 0, 0, 0, 0],
             },
             StatusChannel {
                 index: 12,
@@ -1026,7 +1074,7 @@ fn it_correctly_parses_sample_1999_files_with_binary16_data() {
                 phase: "".to_string(),
                 circuit_component_being_monitored: "".to_string(),
                 normal_status_value: 0,
-                data: vec![],
+                data: vec![0, 0, 0, 0, 0],
             },
             StatusChannel {
                 index: 13,
@@ -1034,7 +1082,7 @@ fn it_correctly_parses_sample_1999_files_with_binary16_data() {
                 phase: "".to_string(),
                 circuit_component_being_monitored: "".to_string(),
                 normal_status_value: 0,
-                data: vec![],
+                data: vec![0, 0, 0, 0, 0],
             },
             StatusChannel {
                 index: 14,
@@ -1042,7 +1090,7 @@ fn it_correctly_parses_sample_1999_files_with_binary16_data() {
                 phase: "".to_string(),
                 circuit_component_being_monitored: "".to_string(),
                 normal_status_value: 0,
-                data: vec![],
+                data: vec![0, 0, 0, 0, 0],
             },
             StatusChannel {
                 index: 15,
@@ -1050,7 +1098,7 @@ fn it_correctly_parses_sample_1999_files_with_binary16_data() {
                 phase: "".to_string(),
                 circuit_component_being_monitored: "".to_string(),
                 normal_status_value: 0,
-                data: vec![],
+                data: vec![0, 0, 0, 0, 0],
             },
             StatusChannel {
                 index: 16,
@@ -1058,7 +1106,7 @@ fn it_correctly_parses_sample_1999_files_with_binary16_data() {
                 phase: "".to_string(),
                 circuit_component_being_monitored: "".to_string(),
                 normal_status_value: 0,
-                data: vec![],
+                data: vec![0, 0, 0, 0, 0],
             },
         ],
     };
