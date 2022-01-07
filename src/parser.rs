@@ -1,5 +1,6 @@
-use std::io::BufRead;
+use std::io::{BufRead, Cursor};
 
+use byteorder::{LittleEndian, ReadBytesExt};
 use chrono::{FixedOffset, NaiveDateTime};
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -10,7 +11,15 @@ use crate::{
 };
 
 const CFG_SEPARATOR: &'static str = ",";
+
+// 1991 revision uses mm/dd/yyyy format for date whereas 1999 and 2013 use dd/mm/yyyy.
+// 1991 revision uses mm/dd/yyyy format for date whereas 1999 and 2013 use dd/mm/yyyy
+const CFG_DATETIME_FORMAT_OLD: &'static str = "%m/%d/%Y,%H:%M:%S%.f";
 const CFG_DATETIME_FORMAT: &'static str = "%d/%m/%Y,%H:%M:%S%.f";
+
+// To preserve structure integrity, a special value is used in the binary16, binary32
+// and float32 data formats when a timestamp is missing.
+const TIMESTAMP_MISSING: u32 = 0xffffffff;
 
 pub type ParseResult<T> = std::result::Result<T, ParseError>;
 
@@ -202,8 +211,13 @@ pub struct ComtradeParser<T: BufRead> {
     inf_contents: String,
 
     builder: ComtradeBuilder,
+    total_num_samples: u32,
     num_analog_channels: u32,
     num_status_channels: u32,
+    analog_channels: Vec<AnalogChannel>,
+    status_channels: Vec<StatusChannel>,
+    is_timestamp_critical: bool,
+    ts_base_unit: f64,
     data_format: Option<DataFormat>,
 }
 
@@ -229,8 +243,13 @@ impl<T: BufRead> ComtradeParser<T> {
             inf_contents: String::new(),
 
             builder: ComtradeBuilder::default(),
+            total_num_samples: 0,
             num_analog_channels: 0,
             num_status_channels: 0,
+            analog_channels: vec![],
+            status_channels: vec![],
+            is_timestamp_critical: false,
+            ts_base_unit: 0.0,
             data_format: None,
         }
     }
@@ -316,6 +335,9 @@ impl<T: BufRead> ComtradeParser<T> {
 
         // `.hdr` and `.inf` files don't need parsing - if present they're
         // non-machine-readable text files for reference for humans to look at.
+
+        self.builder.analog_channels(self.analog_channels);
+        self.builder.status_channels(self.status_channels);
 
         Ok(self.builder.build().unwrap())
     }
@@ -620,7 +642,7 @@ impl<T: BufRead> ComtradeParser<T> {
 
             line_number += 1;
         }
-        self.builder.analog_channels(analog_channels);
+        self.analog_channels = analog_channels;
 
         // Status (digital) channel information:
         // Dn,ch_id,ph,ccbm,y
@@ -673,7 +695,7 @@ impl<T: BufRead> ComtradeParser<T> {
 
             line_number += 1;
         }
-        self.builder.status_channels(status_channels);
+        self.status_channels = status_channels;
 
         line = lines.next().ok_or(early_end_err.clone())?;
 
@@ -756,6 +778,21 @@ impl<T: BufRead> ComtradeParser<T> {
             });
         }
 
+        self.total_num_samples = sampling_rates
+            .iter()
+            .map(|r| r.end_sample_number)
+            .max()
+            .unwrap();
+
+        // Now that we know how many samples we have in total, we can update the channel buffers
+        // with the correct capacity to make `push()` operations more efficient.
+        for c in self.analog_channels.iter_mut() {
+            c.data = Vec::with_capacity(self.total_num_samples as usize);
+        }
+        for c in self.status_channels.iter_mut() {
+            c.data = Vec::with_capacity(self.total_num_samples as usize);
+        }
+
         // If file has 0 for number of sample rates, there's an extra line which just contains 0
         // indicating no fixed sample rate and the total number of samples. We don't need this data
         // so we just ignore it.
@@ -764,6 +801,7 @@ impl<T: BufRead> ComtradeParser<T> {
             line = lines.next().ok_or(early_end_err.clone())?;
         }
 
+        self.is_timestamp_critical = num_sampling_rates == 0;
         self.builder.sampling_rates(sampling_rates);
 
         line_number += 1;
@@ -773,27 +811,42 @@ impl<T: BufRead> ComtradeParser<T> {
         // Date/time stamps
         // dd/mm/yyyy,hh:mm:ss.ssssss
         // dd/mm/yyyy,hh:mm:ss.ssssss
+        // TODO: Whether this is to micro or nano seconds determines whether how to calculate
+        //       real time values from timestamps (I think - not 100% on this).
 
         // Time of the first data sample in data file.
-        let start_time = NaiveDateTime::parse_from_str(line.trim(), CFG_DATETIME_FORMAT).or(
-            Err(ParseError::new(format!(
+        let datetime_format = if format_revision == FormatRevision::Revision1991 {
+            CFG_DATETIME_FORMAT_OLD
+        } else {
+            CFG_DATETIME_FORMAT
+        };
+
+        let start_time = NaiveDateTime::parse_from_str(line.trim(), datetime_format).or(Err(
+            ParseError::new(format!(
                 "invalid datetime value for start time on line {}: {}",
                 line_number, line,
-            ))),
-        )?;
+            )),
+        ))?;
         self.builder.start_time(start_time);
+
+        self.ts_base_unit = ts_base_unit(line.trim())?;
 
         line_number += 1;
         line = lines.next().ok_or(early_end_err.clone())?;
 
         // Time that the COMTRADE record recording was triggered.
-        let trigger_time = NaiveDateTime::parse_from_str(line.trim(), CFG_DATETIME_FORMAT).or(
-            Err(ParseError::new(format!(
+        let trigger_time = NaiveDateTime::parse_from_str(line.trim(), datetime_format).or(Err(
+            ParseError::new(format!(
                 "invalid datetime value for trigger time on line {}: {}",
                 line_number, line,
-            ))),
-        )?;
+            )),
+        ))?;
         self.builder.trigger_time(trigger_time);
+
+        // According to the spec, if the start time is in micro/nanoseconds, the
+        // other one should be too. If they are inconsistent, just take the lower one
+        // to be safe. In the future this would be a good place to raise a warning.
+        self.ts_base_unit = self.ts_base_unit.min(ts_base_unit(line.trim())?);
 
         line_number += 1;
         line = lines.next().ok_or(early_end_err.clone())?;
@@ -864,23 +917,17 @@ impl<T: BufRead> ComtradeParser<T> {
     fn parse_dat(&mut self) -> ParseResult<()> {
         match self.data_format {
             Some(DataFormat::Ascii) => self.parse_dat_ascii(),
-            Some(DataFormat::Binary16) => self.parse_dat_binary16(),
-            Some(DataFormat::Binary32) => self.parse_dat_binary32(),
-            Some(DataFormat::Float32) => self.parse_dat_float32(),
+            Some(_) => self.parse_dat_binary(),
             None => Err(ParseError::new("Data format not specified.".into())),
         }
     }
 
     fn parse_dat_ascii(&mut self) -> ParseResult<()> {
-        let mut analog_channels = &mut self.builder.analog_channels.as_mut().unwrap();
-        let mut status_channels = &mut self.builder.status_channels.as_mut().unwrap();
-
         // One column for index, one for timestamp.
         let expected_num_cols = (self.num_status_channels + self.num_analog_channels + 2) as usize;
 
-        // TODO: Get capacity from sampling rates, if available (it's just `sampling_rates.map(|r| r.end_sample_number).max()`.).
-        let mut sample_numbers: Vec<u32> = Vec::with_capacity(0);
-        let mut timestamps: Vec<Option<u32>> = Vec::with_capacity(0);
+        let mut sample_numbers: Vec<u32> = Vec::with_capacity(self.total_num_samples as usize);
+        let mut timestamps: Vec<f64> = Vec::with_capacity(self.total_num_samples as usize);
 
         for (i, line) in self
             .ascii_dat_contents
@@ -919,29 +966,34 @@ impl<T: BufRead> ComtradeParser<T> {
                 ))))?),
             };
 
-            timestamps.push(timestamp);
+            timestamps.push(self.real_time(sample_number, timestamp)?);
 
             for channel_idx in 0..self.num_analog_channels {
-                let raw_value = data_values[(channel_idx + 2) as usize].trim();
-                let datum = raw_value.parse::<f64>().or(Err(ParseError::new(format!(
+                let value_str = data_values[(channel_idx + 2) as usize].trim();
+                let value_raw = value_str.parse::<f64>().or(Err(ParseError::new(format!(
                     "[DAT] Invalid float value {} in analog channel {} on line {}.",
-                    raw_value,
+                    value_str,
                     channel_idx + 1,
                     i + 1
                 ))))?;
-                analog_channels[channel_idx as usize].push_datum(datum);
+
+                let adder = self.analog_channels[channel_idx as usize].offset_adder;
+                let multiplier = self.analog_channels[channel_idx as usize].multiplier;
+                let value = value_raw * multiplier + adder;
+
+                self.analog_channels[channel_idx as usize].push_datum(value);
             }
 
             for channel_idx in 0..self.num_status_channels {
-                let raw_value =
+                let value_str =
                     data_values[(channel_idx + self.num_analog_channels + 2) as usize].trim();
-                let datum = raw_value.parse::<u8>().or(Err(ParseError::new(format!(
+                let value = value_str.parse::<u8>().or(Err(ParseError::new(format!(
                     "[DAT] Invalid status value {} in status channel {} on line {}",
-                    raw_value,
+                    value_str,
                     channel_idx + 1,
                     i + 1
                 ))))?;
-                status_channels[channel_idx as usize].push_datum(datum);
+                self.status_channels[channel_idx as usize].push_datum(value);
             }
         }
 
@@ -951,31 +1003,144 @@ impl<T: BufRead> ComtradeParser<T> {
         Ok(())
     }
 
-    fn parse_dat_binary16(&mut self) -> ParseResult<()> {
-        self.builder.sample_numbers(vec![]);
-        self.builder.timestamps(vec![]);
+    fn parse_dat_binary(&mut self) -> ParseResult<()> {
+        // Status channels are binary (0 or 1) and combined into 16-bit bitfields.
+        // Each 16-bit bitfield is referred to as a status "group".
+        let num_status_groups = (self.num_status_channels as f32 / 16.0).ceil() as u8;
 
-        // TODO
+        let mut cursor = Cursor::new(&self.binary_dat_contents);
+
+        let mut sample_numbers: Vec<u32> = Vec::with_capacity(self.total_num_samples as usize);
+        let mut timestamps: Vec<f64> = Vec::with_capacity(self.total_num_samples as usize);
+
+        let mut i = 0;
+        loop {
+            if i >= self.total_num_samples {
+                break;
+            }
+
+            let sample_number = cursor.read_u32::<LittleEndian>().unwrap();
+            let timestamp = cursor.read_u32::<LittleEndian>().unwrap();
+
+            sample_numbers.push(sample_number);
+            timestamps.push(self.real_time(
+                sample_number,
+                if timestamp == TIMESTAMP_MISSING {
+                    None
+                } else {
+                    Some(timestamp)
+                },
+            )?);
+
+            let analog_values = (0..self.num_analog_channels)
+                .map(|channel_idx| {
+                    let value = match self.data_format {
+                        Some(DataFormat::Binary16) => {
+                            cursor.read_i16::<LittleEndian>().unwrap() as f64
+                        }
+                        Some(DataFormat::Binary32) => {
+                            cursor.read_i32::<LittleEndian>().unwrap() as f64
+                        }
+                        Some(DataFormat::Float32) => {
+                            cursor.read_f32::<LittleEndian>().unwrap() as f64
+                        }
+                        _ => panic!(
+                            "tried to parse binary data for non-binary or invalid data format"
+                        ), // TODO: Turn into proper parse result.
+                    };
+
+                    let adder = self.analog_channels[channel_idx as usize].offset_adder;
+                    let multiplier = self.analog_channels[channel_idx as usize].multiplier;
+                    value * multiplier + adder
+                })
+                .collect::<Vec<f64>>();
+
+            for (i, v) in analog_values.into_iter().enumerate() {
+                self.analog_channels[i].push_datum(v);
+            }
+
+            let status_values = (0..num_status_groups)
+                .map(|_| cursor.read_u16::<LittleEndian>().unwrap())
+                .map(|group| {
+                    (0..16)
+                        .map(|bit_idx| {
+                            // Least significant bit is first status channel.
+                            let bit_mask = 0b01 << bit_idx;
+                            let val = (group & bit_mask) >> bit_idx;
+                            val as u8
+                        })
+                        .collect::<Vec<u8>>()
+                })
+                .flatten()
+                // Groups are padded out with zeros - we want to ignore the padded values.
+                .take(self.num_status_channels as usize)
+                .collect::<Vec<u8>>();
+
+            for (i, v) in status_values.into_iter().enumerate() {
+                self.status_channels[i].push_datum(v);
+            }
+
+            i += 1;
+        }
+
+        self.builder.sample_numbers(sample_numbers);
+        self.builder.timestamps(timestamps);
 
         Ok(())
     }
 
-    fn parse_dat_binary32(&mut self) -> ParseResult<()> {
-        self.builder.sample_numbers(vec![]);
-        self.builder.timestamps(vec![]);
+    /// Calculate the true value of the timestamp from the in-file value, using the
+    /// sampling information if possible, otherwise the in-data timestamp values
+    /// along with relevant multiplicative factors from configuration file. This
+    /// does *not* include the skew, which needs to be done on a per-channel basis.
+    fn real_time(&self, sample_number: u32, timestamp: Option<u32>) -> ParseResult<f64> {
+        if !self.is_timestamp_critical || timestamp.is_none() {
+            let sampling_rate = self.sampling_rate_for_sample(sample_number);
+            return ParseResult::Ok((sample_number - 1) as f64 / sampling_rate);
+        }
 
-        // TODO
-
-        Ok(())
+        match timestamp {
+            Some(ts_value) => {
+                let multiplier = self.builder.timestamp_multiplication_factor.unwrap_or(1.0);
+                ParseResult::Ok(ts_value as f64 * self.ts_base_unit * multiplier)
+            }
+            None => ParseResult::Err(ParseError::new(format!(
+                "timestamp is critical but not present in sample number {}",
+                sample_number
+            ))),
+        }
     }
 
-    fn parse_dat_float32(&mut self) -> ParseResult<()> {
-        self.builder.sample_numbers(vec![]);
-        self.builder.timestamps(vec![]);
+    fn sampling_rate_for_sample(&self, sample_number: u32) -> f64 {
+        let sampling_rates: &Vec<SamplingRate> = self.builder.sampling_rates.as_ref().unwrap();
 
-        // TODO
+        let maybe_rate = sampling_rates
+            .iter()
+            .find(|r| sample_number <= r.end_sample_number);
 
-        Ok(())
+        match maybe_rate {
+            Some(rate) => rate.rate_hz,
+            None => 1.0, // TODO: What should we return here? Default value? None?
+        }
+    }
+}
+
+/// If a timestamp is specified to 6 dp then the timestamps should be interpreted as
+/// in the base unit of microseconds. If the timestamp has 9 dp, the timestamps should
+/// be interpreted in nanoseconds.
+fn ts_base_unit(datetime_stamp: &str) -> ParseResult<f64> {
+    let fraction = datetime_stamp.rsplit(".").next();
+
+    if fraction.is_none() {
+        return Err(ParseError::new(
+            "unable to find fractional value in date/time stamp".into(),
+        ));
+    }
+
+    if fraction.unwrap().len() <= 6 {
+        Ok(1e-6)
+    } else {
+        Ok(1e-9)
     }
 }
 

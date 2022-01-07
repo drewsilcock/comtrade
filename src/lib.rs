@@ -40,6 +40,10 @@ pub enum AnalogScalingMode {
     Secondary,
 }
 
+// TODO: Most of these members can be private and just used for calculations, some of
+//       them don't even need to be in the actual struct at all but can just be used
+//       at parse-time (e.g. multiplying/additive factors).
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct AnalogChannel {
     /// 1-indexed counter used to determine which channel this is in a COMTRADE record.
@@ -157,7 +161,7 @@ pub struct Comtrade {
     pub num_status_channels: u32,
 
     pub sample_numbers: Vec<u32>,
-    pub timestamps: Vec<Option<u32>>,
+    pub timestamps: Vec<f64>,
     pub analog_channels: Vec<AnalogChannel>,
     pub status_channels: Vec<StatusChannel>,
 
