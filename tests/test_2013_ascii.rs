@@ -32,7 +32,7 @@ fn it_correctly_parses_sample_2013_files_with_ascii_data() {
 
     let expected_sample_rate = 1200.0;
 
-    let mut expected = Comtrade {
+    let expected = Comtrade {
         station_name: "SMARTSTATION".to_string(),
         recording_device_id: "IED123".to_string(),
         revision: FormatRevision::Revision2013,

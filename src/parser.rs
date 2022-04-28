@@ -1,4 +1,5 @@
 use std::io::{BufRead, Cursor};
+use std::str::FromStr;
 
 use byteorder::{LittleEndian, ReadBytesExt};
 use chrono::{FixedOffset, NaiveDateTime};
@@ -10,12 +11,12 @@ use crate::{
     FormatRevision, LeapSecondStatus, SamplingRate, StatusChannel, TimeQuality,
 };
 
-const CFG_SEPARATOR: &'static str = ",";
+const CFG_SEPARATOR: &str = ",";
 
 // 1991 revision uses mm/dd/yyyy format for date whereas 1999 and 2013 use dd/mm/yyyy.
 // 1991 revision uses mm/dd/yyyy format for date whereas 1999 and 2013 use dd/mm/yyyy
-const CFG_DATETIME_FORMAT_OLD: &'static str = "%m/%d/%Y,%H:%M:%S%.f";
-const CFG_DATETIME_FORMAT: &'static str = "%d/%m/%Y,%H:%M:%S%.f";
+const CFG_DATETIME_FORMAT_OLD: &str = "%m/%d/%Y,%H:%M:%S%.f";
+const CFG_DATETIME_FORMAT: &str = "%d/%m/%Y,%H:%M:%S%.f";
 
 // To preserve structure integrity, a special value is used in the binary16, binary32
 // and float32 data formats when a timestamp is missing.
@@ -34,8 +35,10 @@ impl ParseError {
     }
 }
 
-impl FileType {
-    fn from_str(value: String) -> ParseResult<Self> {
+impl FromStr for FileType {
+    type Err = ParseError;
+
+    fn from_str(value: &str) -> ParseResult<Self> {
         match value.trim().to_lowercase().as_str() {
             "cfg" => Ok(FileType::Cfg),
             "dat" => Ok(FileType::Dat),
@@ -52,7 +55,9 @@ impl Default for FormatRevision {
     }
 }
 
-impl FormatRevision {
+impl FromStr for FormatRevision {
+    type Err = ParseError;
+
     fn from_str(value: &str) -> ParseResult<Self> {
         match value {
             "1991" => Ok(FormatRevision::Revision1991),
@@ -66,7 +71,9 @@ impl FormatRevision {
     }
 }
 
-impl DataFormat {
+impl FromStr for DataFormat {
+    type Err = ParseError;
+
     fn from_str(value: &str) -> ParseResult<Self> {
         match value.trim().to_lowercase().as_str() {
             "ascii" => Ok(DataFormat::Ascii),
@@ -81,7 +88,8 @@ impl DataFormat {
     }
 }
 
-impl AnalogScalingMode {
+impl FromStr for AnalogScalingMode {
+    type Err = ParseError;
     fn from_str(value: &str) -> ParseResult<Self> {
         match value.to_lowercase().as_str() {
             "p" => Ok(AnalogScalingMode::Primary),
@@ -94,8 +102,10 @@ impl AnalogScalingMode {
     }
 }
 
-impl TimeQuality {
-    fn parse(value: &str) -> ParseResult<Self> {
+impl FromStr for TimeQuality {
+    type Err = ParseError;
+
+    fn from_str(value: &str) -> ParseResult<Self> {
         match value.to_lowercase().trim() {
             "f" => Ok(TimeQuality::ClockFailure),
             "b" => Ok(TimeQuality::ClockUnlocked(1)),
@@ -118,8 +128,10 @@ impl TimeQuality {
     }
 }
 
-impl LeapSecondStatus {
-    fn parse(value: &str) -> ParseResult<Self> {
+impl FromStr for LeapSecondStatus {
+    type Err = ParseError;
+
+    fn from_str(value: &str) -> ParseResult<Self> {
         match value.trim() {
             "3" => Ok(LeapSecondStatus::NoCapability),
             "2" => Ok(LeapSecondStatus::Subtracted),
@@ -278,9 +290,9 @@ impl<T: BufRead> ComtradeParser<T> {
             if let Some(ref mut cfg_file) = self.cfg_file {
                 cfg_file
                     .read_to_string(&mut self.cfg_contents)
-                    .or(Err(ParseError::new(
-                        "unable to read specified .cfg file".to_string(),
-                    )))?;
+                    .map_err(|_| {
+                        ParseError::new("unable to read specified .cfg file".to_string())
+                    })?;
             } else {
                 return Err(ParseError::new(
                     "you must specify either .cff or .cfg file".to_string(),
@@ -294,18 +306,20 @@ impl<T: BufRead> ComtradeParser<T> {
                     Some(DataFormat::Ascii) => {
                         dat_file
                             .read_to_string(&mut self.ascii_dat_contents)
-                            .or(Err(ParseError::new(
-                                "unable to read specified .dat file".into(),
-                            )))?;
+                            .map_err(|_| {
+                                ParseError::new("unable to read specified .dat file".into())
+                            })?;
                     }
                     None => {
                         return Err(ParseError::new("unknown data format for data file.".into()));
                     }
                     // Other binary format.
                     _ => {
-                        dat_file.read_to_end(&mut self.binary_dat_contents).or(Err(
-                            ParseError::new("unable to read specified .dat file".into()),
-                        ))?;
+                        dat_file
+                            .read_to_end(&mut self.binary_dat_contents)
+                            .map_err(|_| {
+                                ParseError::new("unable to read specified .dat file".into())
+                            })?;
                     }
                 }
             } else {
@@ -319,17 +333,17 @@ impl<T: BufRead> ComtradeParser<T> {
             if let Some(ref mut hdr_file) = self.hdr_file {
                 hdr_file
                     .read_to_string(&mut self.hdr_contents)
-                    .or(Err(ParseError::new(
-                        "unable to read specified .hdr file".to_string(),
-                    )))?;
+                    .map_err(|_| {
+                        ParseError::new("unable to read specified .hdr file".to_string())
+                    })?;
             }
 
             if let Some(ref mut inf_file) = self.inf_file {
                 inf_file
                     .read_to_string(&mut self.inf_contents)
-                    .or(Err(ParseError::new(
-                        "unable to read specified .inf file".to_string(),
-                    )))?;
+                    .map_err(|_| {
+                        ParseError::new("unable to read specified .inf file".to_string())
+                    })?;
             }
         }
 
@@ -373,26 +387,26 @@ impl<T: BufRead> ComtradeParser<T> {
 
             let maybe_file_header_match = CFF_HEADER_REGEXP.captures(line.as_str());
             if let Some(header_match) = maybe_file_header_match {
-                let file_type_token = header_match.name("file_type").ok_or(ParseError::new(
-                    "unable to find file type in CFF header Regexp".to_string(),
-                ))?;
+                let file_type_token = header_match.name("file_type").ok_or_else(|| {
+                    ParseError::new("unable to find file type in CFF header Regexp".to_string())
+                })?;
 
                 let maybe_data_format_token = header_match.name("data_format");
                 let maybe_data_size_token = header_match.name("data_size");
 
-                current_file = Some(FileType::from_str(file_type_token.as_str().to_string())?);
+                current_file = Some(FileType::from_str(file_type_token.as_str())?);
 
                 if let Some(data_format_token) = maybe_data_format_token {
                     data_format = Some(DataFormat::from_str(data_format_token.as_str())?);
                 }
 
                 if let Some(data_size_token) = maybe_data_size_token {
-                    data_size = Some(data_size_token.as_str().to_string().parse::<usize>().or(
-                        Err(ParseError::new(format!(
+                    data_size = Some(data_size_token.as_str().parse::<usize>().map_err(|_| {
+                        ParseError::new(format!(
                             "unable to parse .dat size: '{}'",
                             data_size_token.as_str()
-                        ))),
-                    )?)
+                        ))
+                    })?)
                 }
 
                 continue;
@@ -432,15 +446,15 @@ impl<T: BufRead> ComtradeParser<T> {
         // TODO: There must be a more efficient way of doing this using line iterators,
         //  I just need to figure out how to create my own line iterator in the
         //  `load_cff()` function.
-        let mut lines = self.cfg_contents.split("\n");
+        let mut lines = self.cfg_contents.split('\n');
 
-        let early_end_err = ParseError::new("unexpected end of .cfg file".to_string());
+        let early_end_err = || ParseError::new("unexpected end of .cfg file".to_string());
 
         let mut line_number = 1;
         let mut line = "";
         let mut line_values: Vec<&str> = vec![];
 
-        line = lines.next().ok_or(early_end_err.clone())?;
+        line = lines.next().ok_or_else(early_end_err)?;
         line_values = line.split(CFG_SEPARATOR).collect();
 
         // Station name, identification and optionally revision year:
@@ -465,7 +479,7 @@ impl<T: BufRead> ComtradeParser<T> {
 
         line_number += 1;
 
-        line = lines.next().ok_or(early_end_err.clone())?;
+        line = lines.next().ok_or_else(early_end_err)?;
         line_values = line.split(CFG_SEPARATOR).collect();
 
         // Number and type of channels:
@@ -477,42 +491,35 @@ impl<T: BufRead> ComtradeParser<T> {
             )));
         }
 
-        let num_total_channels =
-            line_values[0]
-                .trim()
-                .to_string()
-                .parse()
-                .or(Err(ParseError::new(format!(
-                    "invalid integer value for number of total channels: '{}'",
-                    line_values[0]
-                ))))?;
+        let num_total_channels = line_values[0].trim().parse().map_err(|_| {
+            ParseError::new(format!(
+                "invalid integer value for number of total channels: '{}'",
+                line_values[0]
+            ))
+        })?;
         self.builder.num_total_channels(num_total_channels);
 
         let mut num_analog_channels_token = line_values[1].to_string();
         // Last character contains "A" identifier.
         num_analog_channels_token.pop();
-        let num_analog_channels = num_analog_channels_token
-            .trim()
-            .to_string()
-            .parse()
-            .or(Err(ParseError::new(format!(
+        let num_analog_channels = num_analog_channels_token.trim().parse().map_err(|_| {
+            ParseError::new(format!(
                 "invalid integer value for number of analog channels: '{}'",
                 num_analog_channels_token
-            ))))?;
+            ))
+        })?;
         self.builder.num_analog_channels(num_analog_channels);
         self.num_analog_channels = num_analog_channels;
 
         let mut num_status_channels_token = line_values[2].to_string();
         // Last character contains "D" identifier.
         num_status_channels_token.pop();
-        let num_status_channels = num_status_channels_token
-            .trim()
-            .to_string()
-            .parse()
-            .or(Err(ParseError::new(format!(
+        let num_status_channels = num_status_channels_token.trim().parse().map_err(|_| {
+            ParseError::new(format!(
                 "invalid integer value for number of status channels: '{}'",
                 num_status_channels_token
-            ))))?;
+            ))
+        })?;
         self.builder.num_status_channels(num_status_channels);
         self.num_status_channels = num_status_channels;
 
@@ -526,7 +533,8 @@ impl<T: BufRead> ComtradeParser<T> {
         // Analog channel information:
         // An,ch_id,ph,ccbm,uu,a,b,skew,min,max,primary,secondary,PS
         for i in 0..self.num_analog_channels {
-            line = lines.next().ok_or(early_end_err.clone())?;
+            // todo should early_end_err just be a closure?
+            line = lines.next().ok_or_else(early_end_err)?;
             line_values = line.split(CFG_SEPARATOR).collect();
 
             if line_values.len() != 13 {
@@ -536,90 +544,100 @@ impl<T: BufRead> ComtradeParser<T> {
                 )));
             }
 
-            let analog_index =
-                line_values[0]
-                    .trim()
-                    .to_string()
-                    .parse::<u32>()
-                    .or(Err(ParseError::new(format!(
+            let analog_index = line_values[0]
+                .trim()
+                .to_string()
+                .parse::<u32>()
+                .map_err(|_| {
+                    ParseError::new(format!(
                         "invalid integer value for analog channel {} index: {}",
                         i, line_values[0]
-                    ))))?;
+                    ))
+                })?;
 
             let name = line_values[1].to_string();
             let phase = line_values[2].to_string(); // Non-critical.
             let circuit_component_being_monitored = line_values[3].to_string(); // Non-critical.
             let units = line_values[4].to_string();
 
-            let multiplier =
-                line_values[5]
-                    .trim()
-                    .to_string()
-                    .parse::<f64>()
-                    .or(Err(ParseError::new(format!(
+            let multiplier = line_values[5]
+                .trim()
+                .to_string()
+                .parse::<f64>()
+                .map_err(|_| {
+                    ParseError::new(format!(
                         "invalid real numeric value for analog channel {} multiplier: {}",
                         i, line_values[5]
-                    ))))?;
+                    ))
+                })?;
 
-            let offset_adder =
-                line_values[6]
-                    .trim()
-                    .to_string()
-                    .parse::<f64>()
-                    .or(Err(ParseError::new(format!(
+            let offset_adder = line_values[6]
+                .trim()
+                .to_string()
+                .parse::<f64>()
+                .map_err(|_| {
+                    ParseError::new(format!(
                         "invalid real numeric value for analog channel {} offset adder: {}",
                         i, line_values[6]
-                    ))))?;
+                    ))
+                })?;
 
-            let skew =
-                line_values[7]
-                    .trim()
-                    .to_string()
-                    .parse::<f64>()
-                    .or(Err(ParseError::new(format!(
+            let skew = line_values[7]
+                .trim()
+                .to_string()
+                .parse::<f64>()
+                .map_err(|_| {
+                    ParseError::new(format!(
                         "invalid real numeric value for analog channel {} skew: {}",
                         i, line_values[7]
-                    ))))?;
+                    ))
+                })?;
 
-            let min_value =
-                line_values[8]
-                    .trim()
-                    .to_string()
-                    .parse::<f64>()
-                    .or(Err(ParseError::new(format!(
+            let min_value = line_values[8]
+                .trim()
+                .to_string()
+                .parse::<f64>()
+                .map_err(|_| {
+                    ParseError::new(format!(
                         "invalid real numeric value for analog channel {} minimum value: {}",
                         i, line_values[8]
-                    ))))?;
+                    ))
+                })?;
 
-            let max_value =
-                line_values[9]
-                    .trim()
-                    .to_string()
-                    .parse::<f64>()
-                    .or(Err(ParseError::new(format!(
+            let max_value = line_values[9]
+                .trim()
+                .to_string()
+                .parse::<f64>()
+                .map_err(|_| {
+                    ParseError::new(format!(
                         "invalid real numeric value for analog channel {} maximum value: {}",
                         i, line_values[9]
-                    ))))?;
+                    ))
+                })?;
 
             let primary_factor =
                 line_values[10]
                     .trim()
                     .to_string()
                     .parse::<f64>()
-                    .or(Err(ParseError::new(format!(
-                        "invalid real numeric value for analog channel {} primary factor: {}",
-                        i, line_values[10]
-                    ))))?;
+                    .map_err(|_| {
+                        ParseError::new(format!(
+                            "invalid real numeric value for analog channel {} primary factor: {}",
+                            i, line_values[10]
+                        ))
+                    })?;
 
             let secondary_factor =
                 line_values[11]
                     .trim()
                     .to_string()
                     .parse::<f64>()
-                    .or(Err(ParseError::new(format!(
-                        "invalid real numeric value for analog channel {} secondary factor: {}",
-                        i, line_values[11]
-                    ))))?;
+                    .map_err(|_| {
+                        ParseError::new(format!(
+                            "invalid real numeric value for analog channel {} secondary factor: {}",
+                            i, line_values[11]
+                        ))
+                    })?;
 
             let scaling_mode = AnalogScalingMode::from_str(line_values[12].trim())?;
 
@@ -647,7 +665,7 @@ impl<T: BufRead> ComtradeParser<T> {
         // Status (digital) channel information:
         // Dn,ch_id,ph,ccbm,y
         for i in 0..self.num_status_channels {
-            line = lines.next().ok_or(early_end_err.clone())?;
+            line = lines.next().ok_or_else(early_end_err)?;
             line_values = line.split(CFG_SEPARATOR).collect();
 
             if line_values.len() != 5 {
@@ -657,15 +675,16 @@ impl<T: BufRead> ComtradeParser<T> {
                 )));
             }
 
-            let status_index =
-                line_values[0]
-                    .trim()
-                    .to_string()
-                    .parse::<u32>()
-                    .or(Err(ParseError::new(format!(
+            let status_index = line_values[0]
+                .trim()
+                .to_string()
+                .parse::<u32>()
+                .map_err(|_| {
+                    ParseError::new(format!(
                         "invalid integer value for status channel {} index: {}",
                         i, line_values[0]
-                    ))))?;
+                    ))
+                })?;
 
             let name = line_values[1].to_string();
             let phase = line_values[2].to_string(); // Non-critical.
@@ -676,10 +695,12 @@ impl<T: BufRead> ComtradeParser<T> {
                     .trim()
                     .to_string()
                     .parse::<u8>()
-                    .or(Err(ParseError::new(format!(
-                        "invalid integer value for status channel {} normal value: {}",
-                        i, line_values[4]
-                    ))))?;
+                    .map_err(|_| {
+                        ParseError::new(format!(
+                            "invalid integer value for status channel {} normal value: {}",
+                            i, line_values[4]
+                        ))
+                    })?;
             if normal_status_value != 0 && normal_status_value != 1 {
                 return Err(ParseError::new(format!("invalid normal status value for status channel {}: {}; expected one of : '0', '1'", i, line_values[4])));
             }
@@ -697,23 +718,21 @@ impl<T: BufRead> ComtradeParser<T> {
         }
         self.status_channels = status_channels;
 
-        line = lines.next().ok_or(early_end_err.clone())?;
+        line = lines.next().ok_or_else(early_end_err)?;
 
         // Line frequency
         // lf
-        let line_frequency = line
-            .trim()
-            .to_string()
-            .parse::<f64>()
-            .or(Err(ParseError::new(format!(
+        let line_frequency = line.trim().to_string().parse::<f64>().map_err(|_| {
+            ParseError::new(format!(
                 "invalid real numeric value for line frequency: '{}'",
                 line,
-            ))))?;
+            ))
+        })?;
         self.builder.line_frequency(line_frequency);
 
         line_number += 1;
 
-        line = lines.next().ok_or(early_end_err.clone())?;
+        line = lines.next().ok_or_else(early_end_err)?;
         line_values = line.split(CFG_SEPARATOR).collect();
 
         // Sampling rate information
@@ -731,15 +750,17 @@ impl<T: BufRead> ComtradeParser<T> {
                 .trim()
                 .to_string()
                 .parse::<u32>()
-                .or(Err(ParseError::new(format!(
-                    "invalid integer value for number of sample rates: {}",
-                    line_values[0]
-                ))))?;
+                .map_err(|_| {
+                    ParseError::new(format!(
+                        "invalid integer value for number of sample rates: {}",
+                        line_values[0]
+                    ))
+                })?;
 
         let mut sampling_rates: Vec<SamplingRate> = Vec::with_capacity(num_sampling_rates as usize);
 
         for i in 0..num_sampling_rates {
-            line = lines.next().ok_or(early_end_err.clone())?;
+            line = lines.next().ok_or_else(early_end_err)?;
             line_values = line.split(CFG_SEPARATOR).collect();
 
             if line_values.len() != 2 {
@@ -750,15 +771,16 @@ impl<T: BufRead> ComtradeParser<T> {
             }
 
             // The sample rate in Hertz of this sample.
-            let rate_hz =
-                line_values[0]
-                    .trim()
-                    .to_string()
-                    .parse::<f64>()
-                    .or(Err(ParseError::new(format!(
+            let rate_hz = line_values[0]
+                .trim()
+                .to_string()
+                .parse::<f64>()
+                .map_err(|_| {
+                    ParseError::new(format!(
                     "invalid float value for sample rate frequency for rate n# {} on line {}: {}",
                     i, line_number, line_values[0]
-                ))))?;
+                ))
+                })?;
 
             // The sample number of the final sample that uses this sample rate. Note this corresponds
             // to the sample number value in the data itself, not an index.
@@ -767,10 +789,12 @@ impl<T: BufRead> ComtradeParser<T> {
                     .trim()
                     .to_string()
                     .parse::<u32>()
-                    .or(Err(ParseError::new(format!(
+                    .map_err(|_| {
+                        ParseError::new(format!(
                         "invalid integer value for end sample number for rate n# {} on line {}: {}",
                         i, line_number, line_values[1]
-                    ))))?;
+                    ))
+                    })?;
 
             sampling_rates.push(SamplingRate {
                 rate_hz,
@@ -798,14 +822,14 @@ impl<T: BufRead> ComtradeParser<T> {
         // so we just ignore it.
         if num_sampling_rates == 0 {
             line_number += 1;
-            line = lines.next().ok_or(early_end_err.clone())?;
+            lines.next().ok_or_else(early_end_err)?;
         }
 
         self.is_timestamp_critical = num_sampling_rates == 0;
         self.builder.sampling_rates(sampling_rates);
 
         line_number += 1;
-        line = lines.next().ok_or(early_end_err.clone())?;
+        line = lines.next().ok_or_else(early_end_err)?;
         line_values = line.split(CFG_SEPARATOR).collect();
 
         // Date/time stamps
@@ -821,26 +845,28 @@ impl<T: BufRead> ComtradeParser<T> {
             CFG_DATETIME_FORMAT
         };
 
-        let start_time = NaiveDateTime::parse_from_str(line.trim(), datetime_format).or(Err(
-            ParseError::new(format!(
-                "invalid datetime value for start time on line {}: {}",
-                line_number, line,
-            )),
-        ))?;
+        let start_time =
+            NaiveDateTime::parse_from_str(line.trim(), datetime_format).map_err(|_| {
+                ParseError::new(format!(
+                    "invalid datetime value for start time on line {}: {}",
+                    line_number, line,
+                ))
+            })?;
         self.builder.start_time(start_time);
 
         self.ts_base_unit = ts_base_unit(line.trim())?;
 
         line_number += 1;
-        line = lines.next().ok_or(early_end_err.clone())?;
+        line = lines.next().ok_or_else(early_end_err)?;
 
         // Time that the COMTRADE record recording was triggered.
-        let trigger_time = NaiveDateTime::parse_from_str(line.trim(), datetime_format).or(Err(
-            ParseError::new(format!(
-                "invalid datetime value for trigger time on line {}: {}",
-                line_number, line,
-            )),
-        ))?;
+        let trigger_time =
+            NaiveDateTime::parse_from_str(line.trim(), datetime_format).map_err(|_| {
+                ParseError::new(format!(
+                    "invalid datetime value for trigger time on line {}: {}",
+                    line_number, line,
+                ))
+            })?;
         self.builder.trigger_time(trigger_time);
 
         // According to the spec, if the start time is in micro/nanoseconds, the
@@ -849,7 +875,7 @@ impl<T: BufRead> ComtradeParser<T> {
         self.ts_base_unit = self.ts_base_unit.min(ts_base_unit(line.trim())?);
 
         line_number += 1;
-        line = lines.next().ok_or(early_end_err.clone())?;
+        line = lines.next().ok_or_else(early_end_err)?;
 
         // Data file type
         // ft
@@ -863,7 +889,7 @@ impl<T: BufRead> ComtradeParser<T> {
         }
 
         line_number += 1;
-        line = lines.next().ok_or(early_end_err.clone())?;
+        line = lines.next().ok_or_else(early_end_err)?;
 
         // Time stamp multiplication factor
         // timemult
@@ -872,10 +898,12 @@ impl<T: BufRead> ComtradeParser<T> {
         // Regardless, this multiplicative factor allows you to store longer time ranges
         // within a single COMTRADE record.
 
-        let time_mult = line.trim().parse::<f64>().or(Err(ParseError::new(format!(
-            "invalid float value for time multiplication factor on line {}: {}",
-            line_number, line,
-        ))))?;
+        let time_mult = line.trim().parse::<f64>().map_err(|_| {
+            ParseError::new(format!(
+                "invalid float value for time multiplication factor on line {}: {}",
+                line_number, line,
+            ))
+        })?;
         self.builder.timestamp_multiplication_factor(time_mult);
 
         // Default values for optional revision-based fields.
@@ -890,7 +918,7 @@ impl<T: BufRead> ComtradeParser<T> {
         }
 
         line_number += 1;
-        line = lines.next().ok_or(early_end_err.clone())?;
+        line = lines.next().ok_or_else(early_end_err)?;
         line_values = line.split(CFG_SEPARATOR).collect();
 
         // Time information and relationship between local time and UTC
@@ -900,15 +928,15 @@ impl<T: BufRead> ComtradeParser<T> {
             .local_offset(parse_time_offset(line_values[1])?);
 
         line_number += 1;
-        line = lines.next().ok_or(early_end_err.clone())?;
+        line = lines.next().ok_or_else(early_end_err)?;
         line_values = line.split(CFG_SEPARATOR).collect();
 
         // Time quality of samples
         // tmq_code,leapsec
-        let tmq_code = TimeQuality::parse(line_values[0])?;
+        let tmq_code = TimeQuality::from_str(line_values[0])?;
         self.builder.time_quality(Some(tmq_code));
 
-        let leap_second_status = LeapSecondStatus::parse(line_values[1])?;
+        let leap_second_status = LeapSecondStatus::from_str(line_values[1])?;
         self.builder.leap_second_status(Some(leap_second_status));
 
         Ok(())
@@ -931,11 +959,11 @@ impl<T: BufRead> ComtradeParser<T> {
 
         for (i, line) in self
             .ascii_dat_contents
-            .split("\n")
+            .split('\n')
             .filter(|l| !l.trim().is_empty())
             .enumerate()
         {
-            let data_values: Vec<&str> = line.split(",").collect();
+            let data_values: Vec<&str> = line.split(',').collect();
 
             if data_values.len() != expected_num_cols {
                 return Err(ParseError::new(format!(
@@ -946,36 +974,39 @@ impl<T: BufRead> ComtradeParser<T> {
                 )));
             }
 
-            let sample_number = data_values[0]
-                .trim()
-                .parse::<u32>()
-                .or(Err(ParseError::new(format!(
+            let sample_number = data_values[0].trim().parse::<u32>().map_err(|_| {
+                ParseError::new(format!(
                     "[DAT] Invalid sample number {} on line {}",
                     data_values[0].trim(),
                     i + 1
-                ))))?;
+                ))
+            })?;
 
             sample_numbers.push(sample_number);
 
             let timestamp = match data_values[1].trim() {
                 "" => None, // TODO: Check whether there are any sampling rates. This is critical if there aren't any sampling rates.
-                v => Some(v.parse::<u32>().or(Err(ParseError::new(format!(
-                    "[DAT] Invalid timestamp {} on line {}.",
-                    data_values[1].trim(),
-                    i
-                ))))?),
+                v => Some(v.parse::<u32>().map_err(|_| {
+                    ParseError::new(format!(
+                        "[DAT] Invalid timestamp {} on line {}.",
+                        data_values[1].trim(),
+                        i
+                    ))
+                })?),
             };
 
             timestamps.push(self.real_time(sample_number, timestamp)?);
 
             for channel_idx in 0..self.num_analog_channels {
                 let value_str = data_values[(channel_idx + 2) as usize].trim();
-                let value_raw = value_str.parse::<f64>().or(Err(ParseError::new(format!(
-                    "[DAT] Invalid float value {} in analog channel {} on line {}.",
-                    value_str,
-                    channel_idx + 1,
-                    i + 1
-                ))))?;
+                let value_raw = value_str.parse::<f64>().map_err(|_| {
+                    ParseError::new(format!(
+                        "[DAT] Invalid float value {} in analog channel {} on line {}.",
+                        value_str,
+                        channel_idx + 1,
+                        i + 1
+                    ))
+                })?;
 
                 let adder = self.analog_channels[channel_idx as usize].offset_adder;
                 let multiplier = self.analog_channels[channel_idx as usize].multiplier;
@@ -987,12 +1018,14 @@ impl<T: BufRead> ComtradeParser<T> {
             for channel_idx in 0..self.num_status_channels {
                 let value_str =
                     data_values[(channel_idx + self.num_analog_channels + 2) as usize].trim();
-                let value = value_str.parse::<u8>().or(Err(ParseError::new(format!(
-                    "[DAT] Invalid status value {} in status channel {} on line {}",
-                    value_str,
-                    channel_idx + 1,
-                    i + 1
-                ))))?;
+                let value = value_str.parse::<u8>().map_err(|_| {
+                    ParseError::new(format!(
+                        "[DAT] Invalid status value {} in status channel {} on line {}",
+                        value_str,
+                        channel_idx + 1,
+                        i + 1
+                    ))
+                })?;
                 self.status_channels[channel_idx as usize].push_datum(value);
             }
         }
@@ -1061,7 +1094,7 @@ impl<T: BufRead> ComtradeParser<T> {
 
             let status_values = (0..num_status_groups)
                 .map(|_| cursor.read_u16::<LittleEndian>().unwrap())
-                .map(|group| {
+                .flat_map(|group| {
                     (0..16)
                         .map(|bit_idx| {
                             // Least significant bit is first status channel.
@@ -1071,7 +1104,6 @@ impl<T: BufRead> ComtradeParser<T> {
                         })
                         .collect::<Vec<u8>>()
                 })
-                .flatten()
                 // Groups are padded out with zeros - we want to ignore the padded values.
                 .take(self.num_status_channels as usize)
                 .collect::<Vec<u8>>();
@@ -1129,7 +1161,7 @@ impl<T: BufRead> ComtradeParser<T> {
 /// in the base unit of microseconds. If the timestamp has 9 dp, the timestamps should
 /// be interpreted in nanoseconds.
 fn ts_base_unit(datetime_stamp: &str) -> ParseResult<f64> {
-    let fraction = datetime_stamp.rsplit(".").next();
+    let fraction = datetime_stamp.rsplit('.').next();
 
     if fraction.is_none() {
         return Err(ParseError::new(
@@ -1170,7 +1202,7 @@ fn parse_time_offset(offset_str: &str) -> ParseResult<Option<FixedOffset>> {
     }
 
     // Offset specified as number + minutes, e.g. "-7h15", "+9h45".
-    let time_split: Vec<&str> = time_value.split("h").collect();
+    let time_split: Vec<&str> = time_value.split('h').collect();
     if time_split.len() != 2 {
         return Err(ParseError::new(format!(
             "invalid time offset on line: {}",
@@ -1178,20 +1210,18 @@ fn parse_time_offset(offset_str: &str) -> ParseResult<Option<FixedOffset>> {
         )));
     }
 
-    let hours = time_split[0]
-        .trim()
-        .parse::<i32>()
-        .or(Err(ParseError::new(format!(
+    let hours = time_split[0].trim().parse::<i32>().map_err(|_| {
+        ParseError::new(format!(
             "invalid hour offset in time offset: {} in {}",
             time_split[0], time_value,
-        ))))?;
-    let minutes = time_split[1]
-        .trim()
-        .parse::<i32>()
-        .or(Err(ParseError::new(format!(
+        ))
+    })?;
+    let minutes = time_split[1].trim().parse::<i32>().map_err(|_| {
+        ParseError::new(format!(
             "invalid minute offset in time offset: {} in {}",
             time_split[1], time_value,
-        ))))?;
+        ))
+    })?;
 
     let total_offset = if hours > 0 {
         hours * 3600 + minutes * 60
@@ -1199,5 +1229,5 @@ fn parse_time_offset(offset_str: &str) -> ParseResult<Option<FixedOffset>> {
         hours * 3600 - minutes * 60
     };
 
-    return Ok(Some(FixedOffset::east(total_offset)));
+    Ok(Some(FixedOffset::east(total_offset)))
 }

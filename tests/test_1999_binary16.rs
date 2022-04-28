@@ -2,17 +2,16 @@ use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
 
-use chrono::{FixedOffset, NaiveDate};
-use float_cmp::approx_eq;
+use chrono::NaiveDate;
 
 use comtrade::{
     AnalogChannel, AnalogScalingMode, Comtrade, ComtradeParserBuilder, DataFormat, FormatRevision,
-    LeapSecondStatus, SamplingRate, StatusChannel, TimeQuality,
+    SamplingRate, StatusChannel,
 };
 
 mod common;
 
-use common::{assert_comtrades_eq, HOUR, MINUTE, SAMPLE_COMTRADE_DIR};
+use common::{assert_comtrades_eq, SAMPLE_COMTRADE_DIR};
 
 #[test]
 fn it_correctly_parses_sample_1999_files_with_binary16_data() {
@@ -32,7 +31,7 @@ fn it_correctly_parses_sample_1999_files_with_binary16_data() {
 
     let expected_sample_rate = 15360.0;
 
-    let mut expected = Comtrade {
+    let expected = Comtrade {
         station_name: "station".to_string(),
         recording_device_id: "equipment".to_string(),
         revision: FormatRevision::Revision1999,
