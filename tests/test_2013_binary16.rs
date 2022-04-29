@@ -34,7 +34,7 @@ fn it_correctly_parses_sample_2013_files_with_binary16_data() {
 
     let expected_sample_rate = 15360.0;
 
-    let mut expected = Comtrade {
+    let expected = Comtrade {
         station_name: "station".to_string(),
         recording_device_id: "equipment".to_string(),
         revision: FormatRevision::Revision2013,

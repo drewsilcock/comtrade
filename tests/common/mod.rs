@@ -1,8 +1,8 @@
 use float_cmp::approx_eq;
 
-use comtrade::{AnalogChannel, Comtrade};
+use comtrade::Comtrade;
 
-pub const SAMPLE_COMTRADE_DIR: &'static str = "./tests/comtrade_files";
+pub const SAMPLE_COMTRADE_DIR: &str = "./tests/comtrade_files";
 pub const MINUTE: i32 = 60;
 pub const HOUR: i32 = MINUTE * 60;
 
